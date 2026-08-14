@@ -65,6 +65,7 @@ async def detect_image(file: UploadFile = File(...)):
                         detection["bbox"],
                         restricted_zone,
                     )
+                detection["is_intrusion"] = is_intrusion
 
                 event = Event(
                     event_type="intrusion" if is_intrusion else "detection",

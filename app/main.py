@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.detection import router as detection_router
 from app.api.health import router as health_router
@@ -44,6 +45,8 @@ app.include_router(
     prefix="/api",
     tags=["Health"],
 )
+
+app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 
 @app.get("/")
 def root():
