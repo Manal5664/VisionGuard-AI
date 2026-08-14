@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { displayToImage, normalizeRect } from "./coords";
+import { useZoneDrawer } from "./useZoneDrawer";
 import DetectionTest from "./DetectionTest";
 import VideoDetection from "./VideoDetection";
 
@@ -11,28 +12,31 @@ export default function App() {
   const [imageName, setImageName] = useState("");
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [zoneName, setZoneName] = useState("");
-  const [rect, setRect] = useState(null);
-  const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savedZone, setSavedZone] = useState(null);
 
-  const wrapperRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  const {
+    wrapperRef,
+    rect,
+    clear,
+    getDisplayPoint,
+    pointerHandlers,
+  } = useZoneDrawer({
+    enabled: Boolean(imageUrl),
+    onReset: () => {
+      setStatus(null);
+      setSavedZone(null);
+    },
+  });
 
   useEffect(() => {
     return () => {
       if (imageUrl) URL.revokeObjectURL(imageUrl);
     };
   }, [imageUrl]);
-
-  const getDisplayPoint = (event) => {
-    const bounds = wrapperRef.current.getBoundingClientRect();
-    return {
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
-    };
-  };
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
@@ -41,7 +45,7 @@ export default function App() {
     if (imageUrl) URL.revokeObjectURL(imageUrl);
     setImageUrl(URL.createObjectURL(file));
     setImageName(file.name);
-    setRect(null);
+    clear();
     setStatus(null);
     setSavedZone(null);
   };
@@ -53,33 +57,8 @@ export default function App() {
     });
   };
 
-  const handlePointerDown = (event) => {
-    if (!imageUrl) return;
-    event.preventDefault();
-    wrapperRef.current.setPointerCapture(event.pointerId);
-    const point = getDisplayPoint(event);
-    setRect({ x1: point.x, y1: point.y, x2: point.x, y2: point.y });
-    setDragging(true);
-    setStatus(null);
-    setSavedZone(null);
-  };
-
-  const handlePointerMove = (event) => {
-    if (!dragging) return;
-    const point = getDisplayPoint(event);
-    setRect((previous) => ({
-      ...previous,
-      x2: point.x,
-      y2: point.y,
-    }));
-  };
-
-  const handlePointerUp = () => {
-    setDragging(false);
-  };
-
   const handleClear = () => {
-    setRect(null);
+    clear();
     setZoneName("");
     setStatus(null);
     setSavedZone(null);
@@ -219,9 +198,7 @@ export default function App() {
               <div
                 ref={wrapperRef}
                 className="draw-canvas"
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
+                {...pointerHandlers}
               >
                 <img
                   src={imageUrl}
