@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.detection import router as detection_router
 from app.api.health import router as health_router
 from app.api.events import router as events_router
+from app.api.video_detection import router as video_detection_router
 from app.api.zones import router as zones_router
 
 app = FastAPI(
@@ -39,6 +40,11 @@ app.include_router(
     detection_router,
     prefix="/api",
     tags=["Detection"],
+)
+app.include_router(
+    video_detection_router,
+    prefix="/api",
+    tags=["Video Detection"],
 )
 app.include_router(
     health_router,

@@ -34,6 +34,9 @@ outputs/
 # Temporary files
 *.tmp
 
+# Test artifacts
+detect_result.json
+
 # Frontend
 frontend/node_modules/
 frontend/dist/

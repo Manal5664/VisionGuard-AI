@@ -21,6 +21,10 @@ def get_events():
                 "object_type": event.object_type,
                 "confidence": event.confidence,
                 "image_path": event.image_path,
+                "source": event.source,
+                "track_id": event.track_id,
+                "frame": event.frame,
+                "media_path": event.media_path,
                 "created_at": event.created_at,
             }
             for event in events

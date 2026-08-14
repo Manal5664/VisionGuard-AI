@@ -13,28 +13,25 @@ STANDARD_BOX_COLOR = (0, 180, 0)
 INTRUSION_BOX_COLOR = (0, 0, 255)
 
 
-def annotate_detections(
-    image_path: str | Path,
+def draw_detections(
+    image,
     detections: Sequence[Mapping[str, Any]],
     restricted_zone: Coordinates | None = None,
-    output_dir: str | Path = ANNOTATED_OUTPUT_DIR,
-) -> Path:
-    """Draw the restricted zone and detections on a copy of an image."""
-    image = cv2.imread(str(image_path))
-    if image is None:
-        raise ValueError(f"Could not read image for annotation: {image_path}")
+):
+    """Draw the restricted zone and detections on a copy of an image/frame."""
+    annotated = image.copy()
 
     if restricted_zone is not None:
         zone_start = (round(restricted_zone["x1"]), round(restricted_zone["y1"]))
         zone_end = (round(restricted_zone["x2"]), round(restricted_zone["y2"]))
-        cv2.rectangle(image, zone_start, zone_end, ZONE_COLOR, 2)
+        cv2.rectangle(annotated, zone_start, zone_end, ZONE_COLOR, 2)
 
-    image_height, image_width = image.shape[:2]
+    image_height, image_width = annotated.shape[:2]
     for detection in detections:
         bounding_box = detection["bbox"]
         class_name = str(detection["class_name"])
-        is_intrusion = False
-        if restricted_zone is not None:
+        is_intrusion = detection.get("is_intrusion")
+        if is_intrusion is None and restricted_zone is not None:
             is_intrusion = is_person_intrusion(
                 class_name,
                 bounding_box,
@@ -51,9 +48,9 @@ def annotate_detections(
 
         label = "INTRUSION" if is_intrusion else class_name
         color = INTRUSION_BOX_COLOR if is_intrusion else STANDARD_BOX_COLOR
-        cv2.rectangle(image, box_start, box_end, color, 2)
+        cv2.rectangle(annotated, box_start, box_end, color, 2)
         cv2.putText(
-            image,
+            annotated,
             label,
             (box_start[0], max(box_start[1] - 8, 20)),
             cv2.FONT_HERSHEY_SIMPLEX,
@@ -63,10 +60,26 @@ def annotate_detections(
             cv2.LINE_AA,
         )
 
+    return annotated
+
+
+def annotate_detections(
+    image_path: str | Path,
+    detections: Sequence[Mapping[str, Any]],
+    restricted_zone: Coordinates | None = None,
+    output_dir: str | Path = ANNOTATED_OUTPUT_DIR,
+) -> Path:
+    """Draw the restricted zone and detections on a copy of an image."""
+    image = cv2.imread(str(image_path))
+    if image is None:
+        raise ValueError(f"Could not read image for annotation: {image_path}")
+
+    annotated = draw_detections(image, detections, restricted_zone)
+
     destination = Path(output_dir)
     destination.mkdir(parents=True, exist_ok=True)
     output_path = destination / f"{uuid4().hex}.jpg"
-    if not cv2.imwrite(str(output_path), image):
+    if not cv2.imwrite(str(output_path), annotated):
         raise OSError(f"Could not write annotated image: {output_path}")
 
     return output_path

@@ -6,10 +6,10 @@ from fastapi import APIRouter, File, UploadFile
 
 from app.core.database import SessionLocal
 from app.models.event import Event
-from app.models.zone import RestrictedZone
 from app.services.annotation import annotate_detections
 from app.services.detector import Detector
-from app.services.intrusion import Coordinates, is_person_intrusion
+from app.services.intrusion import is_person_intrusion
+from app.services.zones import get_restricted_zone
 
 
 router = APIRouter()
@@ -18,15 +18,6 @@ detector = Detector()
 
 UPLOAD_DIR = Path("data/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def _to_zone_coordinates(zone: RestrictedZone) -> Coordinates:
-    return {
-        "x1": zone.x1,
-        "y1": zone.y1,
-        "x2": zone.x2,
-        "y2": zone.y2,
-    }
 
 
 @router.post("/detect")
@@ -44,12 +35,7 @@ async def detect_image(file: UploadFile = File(...)):
         db = SessionLocal()
 
         try:
-            zone = (
-                db.query(RestrictedZone)
-                .order_by(RestrictedZone.id.asc())
-                .first()
-            )
-            restricted_zone = _to_zone_coordinates(zone) if zone else None
+            restricted_zone = get_restricted_zone()
 
             annotated_image_path = annotate_detections(
                 temp_path,

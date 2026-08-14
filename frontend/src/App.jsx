@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { displayToImage, normalizeRect } from "./coords";
 import DetectionTest from "./DetectionTest";
+import VideoDetection from "./VideoDetection";
 
 const API_BASE = "http://127.0.0.1:8000";
 
@@ -178,6 +179,13 @@ export default function App() {
         >
           Detection Test
         </button>
+        <button
+          type="button"
+          className={`nav-link${view === "video" ? " nav-link-active" : ""}`}
+          onClick={() => setView("video")}
+        >
+          Video Detection
+        </button>
       </nav>
       {view === "setup" ? (
         <div className="page">
@@ -309,8 +317,10 @@ export default function App() {
         <p>Restricted zones are stored in the VisionGuard PostgreSQL database.</p>
       </footer>
       </div>
-    ) : (
+    ) : view === "test" ? (
       <DetectionTest />
+    ) : (
+      <VideoDetection />
     )}
     </>
   );
