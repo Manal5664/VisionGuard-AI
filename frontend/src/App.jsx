@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { displayToImage, normalizeRect } from "./coords";
+import DetectionTest from "./DetectionTest";
 
 const API_BASE = "http://127.0.0.1:8000";
 
 export default function App() {
+  const [view, setView] = useState("setup");
   const [imageUrl, setImageUrl] = useState(null);
   const [imageName, setImageName] = useState("");
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
@@ -160,11 +162,29 @@ export default function App() {
   );
 
   return (
-    <div className="page">
-      <header className="header">
-        <h1>VisionGuard</h1>
-        <p className="subtitle">Restricted Zone Setup</p>
-      </header>
+    <>
+      <nav className="nav" aria-label="Page navigation">
+        <button
+          type="button"
+          className={`nav-link${view === "setup" ? " nav-link-active" : ""}`}
+          onClick={() => setView("setup")}
+        >
+          Restricted Zone Setup
+        </button>
+        <button
+          type="button"
+          className={`nav-link${view === "test" ? " nav-link-active" : ""}`}
+          onClick={() => setView("test")}
+        >
+          Detection Test
+        </button>
+      </nav>
+      {view === "setup" ? (
+        <div className="page">
+          <header className="header">
+            <h1>VisionGuard</h1>
+            <p className="subtitle">Restricted Zone Setup</p>
+          </header>
 
       <main className="card">
         <section className="panel">
@@ -288,6 +308,10 @@ export default function App() {
       <footer className="footer">
         <p>Restricted zones are stored in the VisionGuard PostgreSQL database.</p>
       </footer>
-    </div>
+      </div>
+    ) : (
+      <DetectionTest />
+    )}
+    </>
   );
 }
