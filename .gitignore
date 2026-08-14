@@ -1,0 +1,35 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment variables / secrets
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# YOLO / model weights
+*.pt
+*.pth
+*.onnx
+
+# Generated YOLO runs
+runs/
+
+# VisionGuard generated outputs
+outputs/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
