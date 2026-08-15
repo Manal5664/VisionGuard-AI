@@ -82,24 +82,55 @@ def _parse_zone(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def _save_events(upload_filename: str, media_path: str, events: list[dict]) -> None:
+def _save_events(
+    job_id: str,
+    upload_filename: str,
+    media_path: str,
+    zone_name: str | None,
+    fps: float,
+    events: list[dict],
+) -> list[dict]:
     db = SessionLocal()
 
     try:
-        for event in events:
-            db.add(
-                Event(
-                    event_type="intrusion",
-                    object_type="person",
-                    confidence=event["confidence"],
-                    image_path=upload_filename,
-                    source="video",
-                    track_id=event["track_id"],
-                    frame=event["frame"],
-                    media_path=media_path,
-                )
+        saved_events = []
+        for event_sequence, event in enumerate(events, start=1):
+            video_time_seconds = event["frame"] / fps if fps > 0 else None
+            saved_event = Event(
+                event_type="intrusion",
+                object_type="person",
+                confidence=event["confidence"],
+                image_path=upload_filename,
+                source="video",
+                track_id=event["track_id"],
+                frame=event["frame"],
+                media_path=media_path,
+                job_id=job_id,
+                event_sequence=event_sequence,
+                zone_name=zone_name,
+                video_time_seconds=video_time_seconds,
             )
+            db.add(saved_event)
+            saved_events.append(saved_event)
         db.commit()
+
+        for saved_event in saved_events:
+            db.refresh(saved_event)
+
+        return [
+            {
+                "id": event.id,
+                "frame": event.frame,
+                "track_id": event.track_id,
+                "confidence": event.confidence,
+                "job_id": event.job_id,
+                "event_sequence": event.event_sequence,
+                "zone_name": event.zone_name,
+                "video_time_seconds": event.video_time_seconds,
+                "media_path": event.media_path,
+            }
+            for event in saved_events
+        ]
 
     finally:
         db.close()
@@ -131,7 +162,14 @@ def run_video_job(job_id: str, upload_path: Path, zone: JobZone | None = None) -
         with PROCESS_LOCK:
             result = processor.process(progress_callback=on_progress)
 
-        _save_events(upload_path.name, output_path.as_posix(), result["events"])
+        saved_events = _save_events(
+            job_id=job_id,
+            upload_filename=upload_path.name,
+            media_path=output_path.as_posix(),
+            zone_name=zone.name if zone is not None else None,
+            fps=result["fps"],
+            events=result["events"],
+        )
 
         with JOBS_LOCK:
             job["status"] = "completed"
@@ -144,7 +182,7 @@ def run_video_job(job_id: str, upload_path: Path, zone: JobZone | None = None) -
             job["fps"] = result["fps"]
             job["duration_seconds"] = result["duration_seconds"]
             job["zone"] = restricted_zone
-            job["events"] = result["events"]
+            job["events"] = saved_events
 
     except Exception as exc:
         with JOBS_LOCK:

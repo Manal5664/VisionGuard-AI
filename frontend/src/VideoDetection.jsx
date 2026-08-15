@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { displayToImage, normalizeRect } from "./coords";
+import { formatVideoTime } from "./notificationUtils";
 import { useZoneDrawer } from "./useZoneDrawer";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -103,7 +104,7 @@ function extractFirstFrame(file) {
   });
 }
 
-export default function VideoDetection() {
+export default function VideoDetection({ onNotificationsChanged }) {
   const [videoName, setVideoName] = useState("");
   const [firstFrameUrl, setFirstFrameUrl] = useState(null);
   const [extracting, setExtracting] = useState(false);
@@ -130,6 +131,7 @@ export default function VideoDetection() {
   const previousPlaybackTimeRef = useRef(0);
   const seekStartTimeRef = useRef(0);
   const isSeekingRef = useRef(false);
+  const annotatedVideoRef = useRef(null);
 
   const {
     wrapperRef,
@@ -491,6 +493,7 @@ export default function VideoDetection() {
               data.zone ? ` using zone "${data.zone.name}"` : ""
             }.`,
           });
+          onNotificationsChanged?.();
         } else if (data.status === "failed") {
           stopPolling();
           setRunning(false);
@@ -522,9 +525,11 @@ export default function VideoDetection() {
     naturalSize.height,
   );
   const displayedIntrusionEvent = activeIntrusionEvent;
-  const intrusionTimestamp = displayedIntrusionEvent
-    ? formatTimestamp(displayedIntrusionEvent.frame, job)
+  const intrusionVideoTime = displayedIntrusionEvent
+    ? formatVideoTime(getEventVideoTimeSeconds(displayedIntrusionEvent, job))
     : null;
+  const intrusionZoneName = displayedIntrusionEvent?.zone_name || job?.zone?.name || "Restricted area";
+  const intrusionConfidence = Number(displayedIntrusionEvent?.confidence);
 
   return (
     <div className="page">
@@ -715,17 +720,34 @@ export default function VideoDetection() {
               {activeIntrusionEvent && (
                 <div className='intrusion-alert' role='alert' aria-live='assertive' aria-atomic='true'>
                   <div className='intrusion-alert-heading'>
-                    <span className='intrusion-alert-label'>Security alert</span>
-                    <strong>INTRUSION DETECTED</strong>
+                    <span className='intrusion-alert-label'>SECURITY ALERT</span>
+                    <strong>
+                      A person entered the restricted area &quot;{intrusionZoneName}&quot;.
+                    </strong>
                   </div>
-                  {(intrusionTimestamp || displayedIntrusionEvent?.track_id != null) && (
-                    <div className='intrusion-alert-meta'>
-                      {intrusionTimestamp && <span>Timestamp: {intrusionTimestamp}</span>}
-                      {displayedIntrusionEvent?.track_id != null && (
-                        <span>Track ID: {displayedIntrusionEvent.track_id}</span>
-                      )}
-                    </div>
-                  )}
+                  <div className='intrusion-alert-meta'>
+                    <span>Video time: {intrusionVideoTime}</span>
+                    <span>
+                      Track ID: {displayedIntrusionEvent?.track_id == null
+                        ? "Unavailable"
+                        : `#${displayedIntrusionEvent.track_id}`}
+                    </span>
+                    <span>
+                      Confidence: {Number.isFinite(intrusionConfidence)
+                        ? `${(intrusionConfidence * 100).toFixed(1)}%`
+                        : "Unavailable"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="intrusion-alert-action"
+                    onClick={() => {
+                      annotatedVideoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      annotatedVideoRef.current?.focus();
+                    }}
+                  >
+                    View Detection
+                  </button>
                 </div>
               )}
 
@@ -737,6 +759,7 @@ export default function VideoDetection() {
                 }
               >
                 <video
+                ref={annotatedVideoRef}
                 className="annotated-img"
                 src={`${API_BASE}/${job.annotated_video_path.replace(/^\/+/, "")}`}
                 controls
@@ -792,6 +815,18 @@ function formatTimestamp(frame, job) {
   if (!job?.fps) return null;
   const seconds = (frame / job.fps).toFixed(1);
   return `${seconds}s`;
+}
+
+function getEventVideoTimeSeconds(event, job) {
+  const persistedTime = event?.video_time_seconds == null
+    ? Number.NaN
+    : Number(event.video_time_seconds);
+  if (Number.isFinite(persistedTime) && persistedTime >= 0) return persistedTime;
+
+  const frame = Number(event?.frame);
+  const fps = Number(job?.fps);
+  if (!Number.isFinite(frame) || !Number.isFinite(fps) || fps <= 0) return null;
+  return frame / fps;
 }
 
 function getPlaybackEvents(job) {

@@ -8,6 +8,14 @@ ALTER_STATEMENTS = [
     "ALTER TABLE events ADD COLUMN IF NOT EXISTS track_id INTEGER",
     "ALTER TABLE events ADD COLUMN IF NOT EXISTS frame INTEGER",
     "ALTER TABLE events ADD COLUMN IF NOT EXISTS media_path VARCHAR(255)",
+    "ALTER TABLE events ADD COLUMN IF NOT EXISTS job_id VARCHAR(32)",
+    "ALTER TABLE events ADD COLUMN IF NOT EXISTS event_sequence INTEGER",
+    "ALTER TABLE events ADD COLUMN IF NOT EXISTS zone_name VARCHAR(255)",
+    "ALTER TABLE events ADD COLUMN IF NOT EXISTS video_time_seconds DOUBLE PRECISION",
+    (
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_events_job_event_sequence "
+        "ON events (job_id, event_sequence)"
+    ),
 ]
 
 

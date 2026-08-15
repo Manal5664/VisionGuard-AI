@@ -266,8 +266,11 @@ body {
 
 .nav {
   display: flex;
+  align-items: center;
   gap: 8px;
-  margin-bottom: 24px;
+  width: calc(100% - 32px);
+  max-width: 860px;
+  margin: 16px auto 0;
   padding: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -295,6 +298,226 @@ body {
 .nav-link-active:hover {
   color: var(--primary);
   background: rgba(37, 99, 235, 0.1);
+}
+
+.notification-center {
+  position: relative;
+  margin-left: auto;
+}
+
+.notification-bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  color: #334155;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.notification-bell:hover,
+.notification-bell[aria-expanded="true"] {
+  color: var(--primary);
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.notification-bell svg {
+  width: 20px;
+  height: 20px;
+}
+
+.notification-count {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--danger);
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.notification-panel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(430px, calc(100vw - 32px));
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.2);
+}
+
+.notification-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.notification-panel-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notification-panel-header strong {
+  font-size: 15px;
+}
+
+.notification-panel-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.notification-mark-read {
+  padding: 4px;
+  color: var(--primary);
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notification-mark-read:disabled {
+  color: #94a3b8;
+  cursor: default;
+}
+
+.notification-list {
+  max-height: min(610px, calc(100vh - 130px));
+  overflow-y: auto;
+}
+
+.notification-empty {
+  margin: 0;
+  padding: 36px 18px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.notification-empty p {
+  margin: 0 0 12px;
+}
+
+.security-message {
+  position: relative;
+  padding: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.security-message:last-child {
+  border-bottom: 0;
+}
+
+.security-message-unread {
+  background: #fff7f7;
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.security-message-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.security-message-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: #fff;
+  background: var(--danger);
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.security-unread-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  background: var(--danger);
+  border-radius: 50%;
+}
+
+.security-message-copy {
+  margin: 10px 0 12px;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.security-message-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.security-message-details div {
+  min-width: 0;
+}
+
+.security-message-details dt {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.security-message-details dd {
+  margin: 3px 0 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.notification-view-button {
+  padding: 6px 10px;
+  color: #fff;
+  background: #991b1b;
+  border: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notification-view-button:hover:not(:disabled) {
+  background: #7f1d1d;
+}
+
+.notification-view-button:disabled {
+  color: #94a3b8;
+  background: #e2e8f0;
+  cursor: not-allowed;
 }
 
 .status-info {
@@ -417,9 +640,9 @@ body {
 
 .intrusion-alert {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px 16px;
   margin-bottom: 12px;
   padding: 14px 16px;
   color: #7f1d1d;
@@ -434,6 +657,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1 1 100%;
 }
 
 .intrusion-alert-label {
@@ -445,15 +669,100 @@ body {
 }
 
 .intrusion-alert strong {
-  font-size: 18px;
-  letter-spacing: 0.03em;
+  font-size: 15px;
+  line-height: 1.4;
 }
 
 .intrusion-alert-meta {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.intrusion-alert-action {
+  margin-left: auto;
+  padding: 5px 9px;
+  color: #fff;
+  background: #991b1b;
+  border: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.detection-viewer-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.detection-viewer {
+  width: min(900px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 18px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+}
+
+.detection-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.detection-viewer-header > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detection-viewer-header span {
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detection-viewer-header strong {
+  font-size: 18px;
+}
+
+.detection-viewer-close {
+  width: 34px;
+  height: 34px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 23px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.detection-viewer-video {
+  display: block;
+  width: 100%;
+  max-height: calc(100vh - 180px);
+  background: #020617;
+  border-radius: 8px;
+}
+
+.detection-viewer-time {
+  margin: 10px 0 0;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 600;
 }
@@ -482,6 +791,27 @@ body {
 }
 
 @media (max-width: 600px) {
+  .nav {
+    flex-wrap: wrap;
+  }
+
+  .nav-link {
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  .notification-panel {
+    position: fixed;
+    top: 62px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+
+  .security-message-details {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .sound-toggle {
     margin-left: 0;
   }
@@ -493,6 +823,10 @@ body {
 
   .intrusion-alert-meta {
     justify-content: flex-start;
+  }
+
+  .intrusion-alert-action {
+    margin-left: 0;
   }
 }
 

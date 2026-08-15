@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { displayToImage, normalizeRect } from "./coords";
 import { useZoneDrawer } from "./useZoneDrawer";
 import DetectionTest from "./DetectionTest";
+import NotificationCenter from "./NotificationCenter";
 import VideoDetection from "./VideoDetection";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -15,6 +16,7 @@ export default function App() {
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savedZone, setSavedZone] = useState(null);
+  const [notificationRefreshToken, setNotificationRefreshToken] = useState(0);
 
   const fileInputRef = useRef(null);
 
@@ -165,6 +167,7 @@ export default function App() {
         >
           Video Detection
         </button>
+        <NotificationCenter apiBase={API_BASE} refreshToken={notificationRefreshToken} />
       </nav>
       {view === "setup" ? (
         <div className="page">
@@ -297,7 +300,9 @@ export default function App() {
     ) : view === "test" ? (
       <DetectionTest />
     ) : (
-      <VideoDetection />
+      <VideoDetection
+        onNotificationsChanged={() => setNotificationRefreshToken((token) => token + 1)}
+      />
     )}
     </>
   );
