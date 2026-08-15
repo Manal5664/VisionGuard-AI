@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 const API_BASE = "http://127.0.0.1:8000";
 
-export default function DetectionTest() {
+export default function DetectionTest({ onEventsChanged }) {
   const [imageUrl, setImageUrl] = useState(null);
   const [imageName, setImageName] = useState("");
   const [running, setRunning] = useState(false);
@@ -54,6 +54,7 @@ export default function DetectionTest() {
           type: "success",
           message: `Detection complete: ${data.count} object(s) found.`,
         });
+        onEventsChanged?.();
       } else {
         let detail = `Server responded with status ${response.status}.`;
         try {

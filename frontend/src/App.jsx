@@ -1,14 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { displayToImage, normalizeRect } from "./coords";
 import { useZoneDrawer } from "./useZoneDrawer";
+import Dashboard from "./Dashboard";
 import DetectionTest from "./DetectionTest";
+import DetectionViewer from "./DetectionViewer";
+import EventsPage from "./EventsPage";
 import NotificationCenter from "./NotificationCenter";
 import VideoDetection from "./VideoDetection";
+import useNotifications from "./useNotifications";
 
 const API_BASE = "http://127.0.0.1:8000";
+const NAV_ITEMS = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "events", label: "Events" },
+  { id: "setup", label: "Restricted Zones" },
+  { id: "test", label: "Image Detection" },
+  { id: "video", label: "Video Detection" },
+];
 
 export default function App() {
-  const [view, setView] = useState("setup");
+  const [view, setView] = useState("dashboard");
   const [imageUrl, setImageUrl] = useState(null);
   const [imageName, setImageName] = useState("");
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
@@ -17,6 +28,9 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [savedZone, setSavedZone] = useState(null);
   const [notificationRefreshToken, setNotificationRefreshToken] = useState(0);
+  const [eventRefreshToken, setEventRefreshToken] = useState(0);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const notificationState = useNotifications(API_BASE, notificationRefreshToken);
 
   const fileInputRef = useRef(null);
 
@@ -143,33 +157,71 @@ export default function App() {
     naturalSize.height,
   );
 
+  const handleVideoEventsChanged = () => {
+    setNotificationRefreshToken((token) => token + 1);
+    setEventRefreshToken((token) => token + 1);
+  };
+
+  const handleViewDetection = (notification) => {
+    notificationState.markRead(notification);
+    setSelectedNotification(notification);
+  };
+
   return (
     <>
-      <nav className="nav" aria-label="Page navigation">
-        <button
-          type="button"
-          className={`nav-link${view === "setup" ? " nav-link-active" : ""}`}
-          onClick={() => setView("setup")}
-        >
-          Restricted Zone Setup
+      <header className="app-topbar">
+        <button type="button" className="app-brand" onClick={() => setView("dashboard")}>
+          <span className="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2.5 20 6v5.5c0 5.2-3.3 8.5-8 10-4.7-1.5-8-4.8-8-10V6l8-3.5Z" />
+              <path d="m8.7 12 2.1 2.1 4.7-4.7" />
+            </svg>
+          </span>
+          <span>
+            <strong>VisionGuard</strong>
+            <small>Security intelligence</small>
+          </span>
         </button>
-        <button
-          type="button"
-          className={`nav-link${view === "test" ? " nav-link-active" : ""}`}
-          onClick={() => setView("test")}
-        >
-          Detection Test
-        </button>
-        <button
-          type="button"
-          className={`nav-link${view === "video" ? " nav-link-active" : ""}`}
-          onClick={() => setView("video")}
-        >
-          Video Detection
-        </button>
-        <NotificationCenter apiBase={API_BASE} refreshToken={notificationRefreshToken} />
-      </nav>
-      {view === "setup" ? (
+        <nav className="nav" aria-label="Page navigation">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`nav-link${view === item.id ? " nav-link-active" : ""}`}
+              onClick={() => setView(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        <NotificationCenter
+          notifications={notificationState.notifications}
+          readIds={notificationState.readIds}
+          unreadCount={notificationState.unreadCount}
+          loading={notificationState.loading}
+          error={notificationState.error}
+          onRefresh={notificationState.loadNotifications}
+          onMarkAllRead={notificationState.markAllRead}
+          onView={handleViewDetection}
+        />
+      </header>
+      {view === "dashboard" ? (
+        <Dashboard
+          apiBase={API_BASE}
+          notifications={notificationState.notifications}
+          readIds={notificationState.readIds}
+          unreadCount={notificationState.unreadCount}
+          onViewDetection={handleViewDetection}
+          onNavigate={setView}
+          refreshToken={eventRefreshToken}
+        />
+      ) : view === "events" ? (
+        <EventsPage
+          apiBase={API_BASE}
+          onViewDetection={handleViewDetection}
+          refreshToken={eventRefreshToken}
+        />
+      ) : view === "setup" ? (
         <div className="page">
           <header className="header">
             <h1>VisionGuard</h1>
@@ -298,12 +350,19 @@ export default function App() {
       </footer>
       </div>
     ) : view === "test" ? (
-      <DetectionTest />
+      <DetectionTest onEventsChanged={() => setEventRefreshToken((token) => token + 1)} />
     ) : (
       <VideoDetection
-        onNotificationsChanged={() => setNotificationRefreshToken((token) => token + 1)}
+        onNotificationsChanged={handleVideoEventsChanged}
       />
     )}
+      {selectedNotification && (
+        <DetectionViewer
+          apiBase={API_BASE}
+          notification={selectedNotification}
+          onClose={() => setSelectedNotification(null)}
+        />
+      )}
     </>
   );
 }

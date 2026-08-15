@@ -58,3 +58,20 @@ export function getNotificationVideoUrl(apiBase, mediaPath) {
   const normalizedPath = String(mediaPath).replaceAll("\\", "/").replace(/^\/+/, "");
   return `${apiBase}/${normalizedPath}`;
 }
+
+export function getDetectionSeekTime(videoTimeSeconds, durationSeconds) {
+  if (
+    videoTimeSeconds === null ||
+    videoTimeSeconds === undefined ||
+    videoTimeSeconds === ""
+  ) {
+    return null;
+  }
+
+  const seekSeconds = Number(videoTimeSeconds);
+  if (!Number.isFinite(seekSeconds) || seekSeconds < 0) return null;
+
+  const duration = Number(durationSeconds);
+  if (!Number.isFinite(duration)) return seekSeconds;
+  return Math.min(seekSeconds, Math.max(0, duration - 0.01));
+}

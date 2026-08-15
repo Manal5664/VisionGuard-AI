@@ -5,6 +5,7 @@ import {
   countUnreadNotifications,
   deduplicateNotifications,
   formatVideoTime,
+  getDetectionSeekTime,
   getNotificationVideoUrl,
   loadReadNotificationIds,
   markNotificationsRead,
@@ -47,4 +48,11 @@ test("video time and old-event fallbacks are safe", () => {
     getNotificationVideoUrl("http://127.0.0.1:8000", "outputs\\videos\\job.mp4"),
     "http://127.0.0.1:8000/outputs/videos/job.mp4",
   );
+});
+
+test("detection viewer seeks to a persisted timestamp and clamps at video duration", () => {
+  assert.equal(getDetectionSeekTime(12.5, 60), 12.5);
+  assert.equal(getDetectionSeekTime(75, 60), 59.99);
+  assert.equal(getDetectionSeekTime(null, 60), null);
+  assert.equal(getDetectionSeekTime(-1, 60), null);
 });

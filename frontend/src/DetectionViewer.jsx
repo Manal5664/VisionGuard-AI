@@ -1,5 +1,9 @@
 import { useEffect } from "react";
-import { formatVideoTime, getNotificationVideoUrl } from "./notificationUtils";
+import {
+  formatVideoTime,
+  getDetectionSeekTime,
+  getNotificationVideoUrl,
+} from "./notificationUtils";
 
 export default function DetectionViewer({ apiBase, notification, onClose }) {
   const videoUrl = getNotificationVideoUrl(apiBase, notification.media_path);
@@ -40,12 +44,9 @@ export default function DetectionViewer({ apiBase, notification, onClose }) {
           controls
           autoPlay
           onLoadedMetadata={(event) => {
-            if (!Number.isFinite(seekSeconds) || seekSeconds < 0) return;
             const video = event.currentTarget;
-            const maximumTime = Number.isFinite(video.duration)
-              ? Math.max(0, video.duration - 0.01)
-              : seekSeconds;
-            video.currentTime = Math.min(seekSeconds, maximumTime);
+            const targetTime = getDetectionSeekTime(seekSeconds, video.duration);
+            if (targetTime !== null) video.currentTime = targetTime;
           }}
         />
         <p className="detection-viewer-time">
