@@ -3,13 +3,13 @@ import threading
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, model_validator
 
 from app.core.database import SessionLocal
 from app.models.event import Event
 from app.services.detector import Detector
 from app.services.video_processor import VideoProcessor
-from app.services.zones import get_restricted_zone
 
 
 router = APIRouter()
@@ -18,6 +18,22 @@ VIDEO_UPLOAD_DIR = Path("data/videos")
 ANNOTATED_VIDEO_DIR = Path("outputs/videos")
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
 EVENT_COOLDOWN_SECONDS = 10.0
+
+
+class JobZone(BaseModel):
+    name: str
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+    @model_validator(mode="after")
+    def validate_ordering(self):
+        if self.x2 <= self.x1:
+            raise ValueError("x2 must be greater than x1")
+        if self.y2 <= self.y1:
+            raise ValueError("y2 must be greater than y1")
+        return self
 
 JOBS_LOCK = threading.Lock()
 JOBS = {}
@@ -38,10 +54,32 @@ def _new_job(filename: str) -> tuple[str, dict]:
         "annotated_video_path": None,
         "fps": None,
         "duration_seconds": None,
+        "zone": None,
         "events": [],
         "error": None,
     }
     return job_id, job
+
+
+def _parse_zone(
+    zone_name: str | None,
+    x1: float | None,
+    y1: float | None,
+    x2: float | None,
+    y2: float | None,
+) -> JobZone | None:
+    provided = [value is not None for value in (zone_name, x1, y1, x2, y2)]
+    if not any(provided):
+        return None
+    if not all(provided):
+        raise HTTPException(
+            status_code=400,
+            detail="Zone must be fully defined: provide zone_name and all four coordinates.",
+        )
+    try:
+        return JobZone(name=zone_name, x1=x1, y1=y1, x2=x2, y2=y2)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _save_events(upload_filename: str, media_path: str, events: list[dict]) -> None:
@@ -67,14 +105,14 @@ def _save_events(upload_filename: str, media_path: str, events: list[dict]) -> N
         db.close()
 
 
-def run_video_job(job_id: str, upload_path: Path) -> None:
+def run_video_job(job_id: str, upload_path: Path, zone: JobZone | None = None) -> None:
     job = JOBS[job_id]
     job["status"] = "processing"
 
     output_path = ANNOTATED_VIDEO_DIR / f"{job_id}.mp4"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    restricted_zone = get_restricted_zone()
+    restricted_zone = zone.model_dump() if zone is not None else None
     processor = VideoProcessor(
         video_path=upload_path,
         output_path=output_path,
@@ -105,6 +143,7 @@ def run_video_job(job_id: str, upload_path: Path) -> None:
             job["annotated_video_path"] = result["output_path"]
             job["fps"] = result["fps"]
             job["duration_seconds"] = result["duration_seconds"]
+            job["zone"] = restricted_zone
             job["events"] = result["events"]
 
     except Exception as exc:
@@ -117,13 +156,23 @@ def run_video_job(job_id: str, upload_path: Path) -> None:
 
 
 @router.post("/video-detect", status_code=202)
-async def video_detect(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
+async def video_detect(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
+    zone_name: str | None = Form(None),
+    x1: float | None = Form(None),
+    y1: float | None = Form(None),
+    x2: float | None = Form(None),
+    y2: float | None = Form(None),
+):
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported video type '{suffix}'. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
         )
+
+    zone = _parse_zone(zone_name, x1, y1, x2, y2)
 
     job_id, job = _new_job(file.filename)
     with JOBS_LOCK:
@@ -135,7 +184,7 @@ async def video_detect(file: UploadFile = File(...), background_tasks: Backgroun
     with upload_path.open("wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    background_tasks.add_task(run_video_job, job_id, upload_path)
+    background_tasks.add_task(run_video_job, job_id, upload_path, zone)
 
     return {"job_id": job_id, "status": job["status"]}
 

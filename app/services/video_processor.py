@@ -1,3 +1,5 @@
+import subprocess
+import tempfile
 from pathlib import Path
 
 import cv2
@@ -10,6 +12,44 @@ from app.services.intrusion import Coordinates, is_person_intrusion
 VIDEO_CODEC = "mp4v"
 OUTPUT_EXTENSION = ".mp4"
 DEFAULT_EVENT_COOLDOWN_SECONDS = 10.0
+
+TRANSCODE_ARGS = [
+    "-c:v", "libx264",
+    "-preset", "medium",
+    "-crf", "23",
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+    "-an",
+]
+
+
+def transcode_to_h264(source: str | Path, destination: str | Path) -> None:
+    """Encode a browser-compatible H.264 MP4 from an intermediate video file."""
+    try:
+        import imageio_ffmpeg
+    except ImportError as exc:
+        raise OSError(
+            "ffmpeg is required to produce browser-compatible H.264 video; "
+            "install it with: pip install imageio-ffmpeg"
+        ) from exc
+
+    destination = Path(destination)
+    completed = subprocess.run(
+        [
+            imageio_ffmpeg.get_ffmpeg_exe(),
+            "-y",
+            "-loglevel", "error",
+            "-i", str(source),
+            *TRANSCODE_ARGS,
+            str(destination),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0 or destination.stat().st_size == 0:
+        destination.unlink(missing_ok=True)
+        details = (completed.stderr or completed.stdout or "unknown error").strip()
+        raise OSError(f"Could not encode H.264 video with ffmpeg: {details}")
 
 
 class VideoProcessor:
@@ -46,15 +86,7 @@ class VideoProcessor:
         total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
         cooldown_frames = max(1, round(self.event_cooldown_seconds * fps))
 
-        writer = cv2.VideoWriter(
-            str(self.output_path),
-            cv2.VideoWriter_fourcc(*VIDEO_CODEC),
-            fps,
-            (width, height),
-        )
-        if not writer.isOpened():
-            capture.release()
-            raise OSError(f"Could not write annotated video: {self.output_path}")
+        self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
         active_tracks = set()
         last_event_frames = {}
@@ -65,66 +97,78 @@ class VideoProcessor:
         processed_frames = 0
         frame_index = 0
 
-        try:
-            while True:
-                ok, frame = capture.read()
-                if not ok:
-                    break
+        with tempfile.TemporaryDirectory(prefix="visionguard_annotated_") as tmp_dir:
+            intermediate_path = Path(tmp_dir) / f"{self.output_path.stem}_intermediate{OUTPUT_EXTENSION}"
+            writer = cv2.VideoWriter(
+                str(intermediate_path),
+                cv2.VideoWriter_fourcc(*VIDEO_CODEC),
+                fps,
+                (width, height),
+            )
+            if not writer.isOpened():
+                capture.release()
+                raise OSError(f"Could not write annotated video: {intermediate_path}")
 
-                if frame_index % self.sample_every == 0:
-                    detections = self.detector.detect_frame(frame)
+            try:
+                while True:
+                    ok, frame = capture.read()
+                    if not ok:
+                        break
 
-                    intruding_tracks = set()
-                    for detection in detections:
-                        is_intrusion = False
-                        if self.restricted_zone is not None:
-                            is_intrusion = is_person_intrusion(
-                                detection["class_name"],
-                                detection["bbox"],
-                                self.restricted_zone,
-                            )
-                        detection["is_intrusion"] = is_intrusion
-                        if not is_intrusion:
-                            continue
+                    if frame_index % self.sample_every == 0:
+                        detections = self.detector.detect_frame(frame)
 
-                        intrusion_frame_count += 1
-                        track_id = detection.get("track_id")
-                        confidence = detection["confidence"]
-
-                        if track_id is not None:
-                            intruding_tracks.add(track_id)
-                            last_seen = last_event_frames.get(track_id, float("-inf"))
-                            if track_id not in active_tracks:
-                                events.append(
-                                    {"frame": frame_index, "track_id": track_id, "confidence": confidence}
+                        intruding_tracks = set()
+                        for detection in detections:
+                            is_intrusion = False
+                            if self.restricted_zone is not None:
+                                is_intrusion = is_person_intrusion(
+                                    detection["class_name"],
+                                    detection["bbox"],
+                                    self.restricted_zone,
                                 )
-                                last_event_frames[track_id] = frame_index
-                            elif frame_index - last_seen >= cooldown_frames:
+                            detection["is_intrusion"] = is_intrusion
+                            if not is_intrusion:
+                                continue
+
+                            intrusion_frame_count += 1
+                            track_id = detection.get("track_id")
+                            confidence = detection["confidence"]
+
+                            if track_id is not None:
+                                intruding_tracks.add(track_id)
+                                last_seen = last_event_frames.get(track_id, float("-inf"))
+                                if track_id not in active_tracks:
+                                    events.append(
+                                        {"frame": frame_index, "track_id": track_id, "confidence": confidence}
+                                    )
+                                    last_event_frames[track_id] = frame_index
+                                elif frame_index - last_seen >= cooldown_frames:
+                                    events.append(
+                                        {"frame": frame_index, "track_id": track_id, "confidence": confidence}
+                                    )
+                                    last_event_frames[track_id] = frame_index
+                            elif frame_index - last_untracked_event_frame >= cooldown_frames:
                                 events.append(
-                                    {"frame": frame_index, "track_id": track_id, "confidence": confidence}
+                                    {"frame": frame_index, "track_id": None, "confidence": confidence}
                                 )
-                                last_event_frames[track_id] = frame_index
-                        elif frame_index - last_untracked_event_frame >= cooldown_frames:
-                            events.append(
-                                {"frame": frame_index, "track_id": None, "confidence": confidence}
-                            )
-                            last_untracked_event_frame = frame_index
+                                last_untracked_event_frame = frame_index
 
-                    active_tracks = intruding_tracks
+                        active_tracks = intruding_tracks
 
-                    annotated = draw_detections(frame, detections, self.restricted_zone)
-                    writer.write(annotated)
-                    processed_frames += 1
+                        annotated = draw_detections(frame, detections, self.restricted_zone)
+                        writer.write(annotated)
+                        processed_frames += 1
 
-                    if progress_callback is not None:
-                        progress_callback(processed_frames, frame_index + 1, total_frames)
+                        if progress_callback is not None:
+                            progress_callback(processed_frames, frame_index + 1, total_frames)
 
-                frame_index += 1
-        finally:
-            capture.release()
-            writer.release()
+                    frame_index += 1
+            finally:
+                capture.release()
+                writer.release()
 
-        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+            transcode_to_h264(intermediate_path, self.output_path)
 
         return {
             "total_frames": total_frames,

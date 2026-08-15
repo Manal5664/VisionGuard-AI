@@ -397,3 +397,15 @@ body {
   border-radius: 999px;
   transition: width 0.3s ease;
 }
+
+.zone-used {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+}
+
+.zone-used .label {
+  margin-bottom: 6px;
+}
