@@ -189,8 +189,13 @@ body {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 20px;
+}
+
+.sound-toggle {
+  margin-left: auto;
 }
 
 .button {
@@ -408,4 +413,92 @@ body {
 
 .zone-used .label {
   margin-bottom: 6px;
+}
+
+.intrusion-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  color: #7f1d1d;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1px solid #f87171;
+  border-left: 5px solid var(--danger);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.12);
+}
+
+.intrusion-alert-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.intrusion-alert-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #b91c1c;
+}
+
+.intrusion-alert strong {
+  font-size: 18px;
+  letter-spacing: 0.03em;
+}
+
+.intrusion-alert-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.annotated-video-frame {
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  border-radius: 10px;
+}
+
+.annotated-video-frame.intrusion-active {
+  animation: intrusion-video-pulse 1.1s ease-out;
+}
+
+@keyframes intrusion-video-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.75);
+  }
+  45% {
+    box-shadow: 0 0 0 5px rgba(220, 38, 38, 0.85), 0 0 28px rgba(220, 38, 38, 0.65);
+  }
+  100% {
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0), 0 0 10px rgba(220, 38, 38, 0);
+  }
+}
+
+@media (max-width: 600px) {
+  .sound-toggle {
+    margin-left: 0;
+  }
+
+  .intrusion-alert {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .intrusion-alert-meta {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .annotated-video-frame.intrusion-active {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.75);
+  }
 }
