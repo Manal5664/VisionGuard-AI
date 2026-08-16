@@ -1,5 +1,6 @@
 import json
 import queue
+import sys
 import threading
 import uuid
 from collections.abc import Callable, Iterator, Mapping
@@ -22,6 +23,57 @@ CAMERA_START_TIMEOUT_SECONDS = 5.0
 CAMERA_EVENT_DIR = Path("outputs/cameras/events")
 
 
+def open_webcam_capture(
+    index: int,
+    capture_factory: Callable[[int, Any | None], Any] = cv2.VideoCapture,
+    *,
+    platform: str | None = None,
+) -> Any:
+    """Open a webcam capture that is confirmed to deliver real frames.
+
+    On Windows, DirectShow (``cv2.CAP_DSHOW``) is attempted first because the
+    default Media Foundation backend can report that a laptop webcam opened
+    while still failing to return frames. Every attempt must both open and
+    return at least one real frame; failed attempts are released before
+    falling back to the default OpenCV backend.
+    """
+    actual_platform = sys.platform if platform is None else platform
+    candidates = (
+        [(cv2.CAP_DSHOW, "DirectShow"), (None, "default")]
+        if actual_platform == "win32"
+        else [(None, "default")]
+    )
+    last_error: Exception | None = None
+    for backend, backend_name in candidates:
+        capture = (
+            capture_factory(index, backend)
+            if backend is not None
+            else capture_factory(index)
+        )
+        try:
+            if not capture.isOpened():
+                raise RuntimeError(
+                    f"OpenCV could not open webcam index {index} via the "
+                    f"{backend_name} backend."
+                )
+            ok, frame = capture.read()
+            if not ok or frame is None:
+                raise RuntimeError(
+                    f"Webcam index {index} opened via the {backend_name} backend "
+                    "but did not return a frame."
+                )
+            return capture
+        except Exception as exc:
+            last_error = exc
+            try:
+                capture.release()
+            except Exception:
+                pass
+    raise RuntimeError(
+        str(last_error) or f"Could not open webcam index {index}."
+    )
+
+
 class LiveCameraMonitor:
     def __init__(
         self,
@@ -29,7 +81,7 @@ class LiveCameraMonitor:
         zone: Coordinates | None,
         *,
         event_callback: Callable[[int, dict], None] | None = None,
-        capture_factory: Callable[[int], Any] = cv2.VideoCapture,
+        capture_factory: Callable[[int, Any | None], Any] = cv2.VideoCapture,
         detector_factory: Callable[[], Any] = Detector,
         session_factory=SessionLocal,
         output_dir: str | Path = CAMERA_EVENT_DIR,
@@ -205,7 +257,10 @@ class LiveCameraMonitor:
     def _open_capture(self):
         if self.camera.get("source_type") != "webcam":
             raise NotImplementedError("Only webcam cameras are supported in Phase 1.")
-        return self._capture_factory(int(self.camera["webcam_index"]))
+        return open_webcam_capture(
+            int(self.camera["webcam_index"]),
+            capture_factory=self._capture_factory,
+        )
 
     def _publish_frame(self, frame) -> None:
         ok, encoded = cv2.imencode(

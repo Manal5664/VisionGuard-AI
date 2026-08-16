@@ -15,7 +15,11 @@ import app.api.zones as zones_api
 from app.core.database import Base
 from app.models.camera import Camera
 from app.models.event import Event
-from app.services.camera_monitor import CameraMonitorManager, LiveCameraMonitor
+from app.services.camera_monitor import (
+    CameraMonitorManager,
+    LiveCameraMonitor,
+    open_webcam_capture,
+)
 
 
 def make_test_session():
@@ -64,6 +68,36 @@ class FakeCapture:
         self.released = True
 
 
+class ControlledCapture:
+    def __init__(self, opened=True, readable=True):
+        self.opened = opened
+        self.readable = readable
+        self.released = False
+        self.read_count = 0
+
+    def isOpened(self):
+        return self.opened
+
+    def read(self):
+        self.read_count += 1
+        if not self.readable:
+            return False, None
+        return True, np.zeros((48, 64, 3), dtype=np.uint8)
+
+    def release(self):
+        self.released = True
+
+
+class RecordingFactory:
+    def __init__(self, *captures):
+        self.captures = list(captures)
+        self.calls = []
+
+    def __call__(self, index, backend=None):
+        self.calls.append((index, backend))
+        return self.captures.pop(0)
+
+
 class EmptyDetector:
     def detect_frame(self, frame):
         return []
@@ -89,6 +123,63 @@ class EntryExitDetector:
                 "track_id": 4,
             }
         ]
+
+
+class WindowsWebcamCaptureTests(unittest.TestCase):
+    def test_windows_prefers_directshow_and_verifies_a_real_frame(self):
+        capture = ControlledCapture()
+        factory = RecordingFactory(capture)
+
+        opened = open_webcam_capture(0, factory, platform="win32")
+
+        self.assertIs(opened, capture)
+        self.assertEqual(factory.calls, [(0, cv2.CAP_DSHOW)])
+        self.assertEqual(capture.read_count, 1)
+        self.assertFalse(capture.released)
+
+    def test_windows_falls_back_when_directshow_cannot_open(self):
+        failed = ControlledCapture(opened=False)
+        fallback = ControlledCapture()
+        factory = RecordingFactory(failed, fallback)
+
+        opened = open_webcam_capture(0, factory, platform="win32")
+
+        self.assertIs(opened, fallback)
+        self.assertEqual(factory.calls, [(0, cv2.CAP_DSHOW), (0, None)])
+        self.assertTrue(failed.released)
+        self.assertFalse(fallback.released)
+
+    def test_windows_falls_back_when_directshow_returns_no_frame(self):
+        failed = ControlledCapture(opened=True, readable=False)
+        fallback = ControlledCapture()
+        factory = RecordingFactory(failed, fallback)
+
+        opened = open_webcam_capture(0, factory, platform="win32")
+
+        self.assertIs(opened, fallback)
+        self.assertEqual(factory.calls, [(0, cv2.CAP_DSHOW), (0, None)])
+        self.assertTrue(failed.released)
+        self.assertEqual(failed.read_count, 1)
+
+    def test_windows_raises_and_releases_all_captures_when_every_backend_fails(self):
+        failed_dshow = ControlledCapture(opened=False)
+        failed_default = ControlledCapture(opened=False)
+        factory = RecordingFactory(failed_dshow, failed_default)
+
+        with self.assertRaises(RuntimeError):
+            open_webcam_capture(0, factory, platform="win32")
+
+        self.assertTrue(failed_dshow.released)
+        self.assertTrue(failed_default.released)
+
+    def test_non_windows_uses_default_backend_once(self):
+        capture = ControlledCapture()
+        factory = RecordingFactory(capture)
+
+        opened = open_webcam_capture(0, factory, platform="linux")
+
+        self.assertIs(opened, capture)
+        self.assertEqual(factory.calls, [(0, None)])
 
 
 class CameraTests(unittest.TestCase):
@@ -138,7 +229,7 @@ class CameraTests(unittest.TestCase):
                 "webcam_index": 0,
             },
             None,
-            capture_factory=lambda index: capture,
+            capture_factory=lambda index, backend=None: capture,
             detector_factory=EmptyDetector,
             session_factory=test_session,
         )
@@ -224,7 +315,7 @@ class CameraTests(unittest.TestCase):
                     "y2": 40,
                 },
                 event_callback=lambda source_id, event: published.append(event),
-                capture_factory=lambda index: capture,
+                capture_factory=lambda index, backend=None: capture,
                 detector_factory=EntryExitDetector,
                 session_factory=test_session,
                 output_dir=output_dir,
