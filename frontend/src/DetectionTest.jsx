@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import Button from "./components/ui/Button";
+import Card from "./components/ui/Card";
+import Icon from "./components/ui/Icon";
+import PageHeader from "./components/ui/PageHeader";
+import StepIndicator from "./components/ui/StepIndicator";
 
 const API_BASE = "http://127.0.0.1:8000";
 
@@ -82,71 +87,74 @@ export default function DetectionTest({ onEventsChanged }) {
     : 0;
 
   return (
-    <div className="page">
-      <header className="header">
-        <h1>VisionGuard</h1>
-        <p className="subtitle">Detection Test</p>
-      </header>
+    <div>
+      <PageHeader
+        eyebrow="Image analysis"
+        title="Image Detection"
+        description="Run object detection on a single image and check restricted-zone intrusions."
+      />
 
-      <main className="card">
-        <section className="panel">
-          <div className="panel-header">
-            <h2>1 · Choose an image</h2>
-            <button
-              type="button"
-              className="button button-secondary"
+      <StepIndicator
+        steps={[
+          { id: "image", label: "Choose an image", sub: imageName || "jpg / png" },
+          { id: "run", label: "Run detection", sub: running ? "Analyzing" : "Ready" },
+          { id: "review", label: "Review results", sub: result ? "Complete" : "—" },
+        ]}
+        current={running ? 1 : result ? 2 : 0}
+      />
+
+      <Card eyebrow="Step 1 · Input" title="Choose an image" className="video-step-panel">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={handleFileChange}
+        />
+        {imageUrl ? (
+          <div className="zone-draw-preview">
+            <div className="draw-canvas">
+              <img src={imageUrl} alt="Selected preview" draggable={false} />
+            </div>
+            <span className="hint">
+              The YOLO model will detect objects and check for restricted-zone intrusions.
+            </span>
+            <Button
+              variant="secondary"
+              icon="image"
               onClick={() => fileInputRef.current?.click()}
               disabled={running}
             >
-              {imageName ? "Change image" : "Choose image"}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={handleFileChange}
-            />
+              Change image
+            </Button>
           </div>
+        ) : (
+          <button
+            type="button"
+            className="drop-zone"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={running}
+          >
+            <span className="drop-zone-icon" aria-hidden="true">
+              <Icon name="image" />
+            </span>
+            <strong>No image selected yet</strong>
+            <span>Choose an image to run object detection.</span>
+          </button>
+        )}
+      </Card>
 
-          {imageUrl ? (
-            <div className="preview-wrap">
-              <div className="draw-canvas">
-                <img src={imageUrl} alt="Selected preview" draggable={false} />
-              </div>
-              <p className="hint">
-                The YOLO model will detect objects and check for restricted-zone intrusions.
-              </p>
-            </div>
-          ) : (
-            <div className="placeholder">
-              <p>No image selected yet.</p>
-              <button
-                type="button"
-                className="button button-primary"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={running}
-              >
-                Choose an image
-              </button>
-            </div>
-          )}
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <h2>2 · Run detection</h2>
-          </div>
-
+      <Card eyebrow="Step 2 · Analyze" title="Run detection">
+        <div className="stack">
           <div className="actions">
-            <button
-              type="button"
-              className="button button-primary"
+            <Button
+              variant="primary"
+              icon="scan"
               onClick={handleRun}
-              disabled={running}
+              loading={running}
             >
               {running ? "Running detection…" : "Run Detection"}
-            </button>
+            </Button>
           </div>
 
           {running && (
@@ -162,56 +170,43 @@ export default function DetectionTest({ onEventsChanged }) {
           )}
 
           {result && (
-            <div className="detect-results">
-              <div className="detect-summary">
-                <span>
-                  {result.count} object(s) detected
-                </span>
-                <span className={intrusionCount > 0 ? "badge badge-danger" : "badge badge-ok"}>
+            <div>
+              <div className="result-summary">
+                <span className="badge badge-info">{result.count} object(s) detected</span>
+                <span className={`badge ${intrusionCount > 0 ? "badge-danger" : "badge-success"}`}>
                   {intrusionCount} intrusion(s)
                 </span>
               </div>
 
-              <img
-                className="annotated-img"
-                src={`${API_BASE}${result.annotated_image_path}`}
-                alt="Annotated detection result"
-              />
+              <div className="annotated-frame">
+                <img
+                  className="video-results-media"
+                  src={`${API_BASE}${result.annotated_image_path}`}
+                  alt="Annotated detection result"
+                />
+              </div>
 
               {result.detections.length > 0 && (
-                <table className="detect-table">
-                  <thead>
-                    <tr>
-                      <th>Class</th>
-                      <th>Confidence</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.detections.map((detection, index) => (
-                      <tr key={index}>
-                        <td>{detection.class_name}</td>
-                        <td>{(detection.confidence * 100).toFixed(1)}%</td>
-                        <td>
-                          {detection.is_intrusion ? (
-                            <span className="badge badge-danger">INTRUSION</span>
-                          ) : (
-                            <span className="badge badge-ok">OK</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="detect-list" style={{ marginTop: "var(--sp-4)" }}>
+                  {result.detections.map((detection, index) => (
+                    <div className="detect-row" key={index}>
+                      <div className="detect-row-copy">
+                        <strong>{detection.class_name}</strong>
+                        <small>{(detection.confidence * 100).toFixed(1)}%</small>
+                      </div>
+                      {detection.is_intrusion ? (
+                        <span className="badge badge-danger">Intrusion</span>
+                      ) : (
+                        <span className="badge badge-success">OK</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
-        </section>
-      </main>
-
-      <footer className="footer">
-        <p>Detection results use the saved restricted zone and are stored as events.</p>
-      </footer>
+        </div>
+      </Card>
     </div>
   );
 }

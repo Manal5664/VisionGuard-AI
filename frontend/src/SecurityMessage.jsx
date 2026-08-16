@@ -1,4 +1,5 @@
 import { formatVideoTime } from "./notificationUtils";
+import Icon from "./components/ui/Icon";
 
 export default function SecurityMessage({ notification, unread, onView }) {
   const zoneName = notification.zone_name || "Restricted area";
@@ -6,12 +7,15 @@ export default function SecurityMessage({ notification, unread, onView }) {
     ? Number.NaN
     : Number(notification.confidence);
   const canView = Boolean(notification.media_path);
+  const isCameraEvent = notification.source === "camera";
 
   return (
     <article className={`security-message${unread ? " security-message-unread" : ""}`}>
       <div className="security-message-title">
-        <span className="security-message-icon" aria-hidden="true">!</span>
-        <span>SECURITY ALERT</span>
+        <span className="security-message-icon" aria-hidden="true">
+          <Icon name="alert" size={11} />
+        </span>
+        <span>Security alert</span>
         {unread && <span className="security-unread-dot" aria-label="Unread" />}
       </div>
       <p className="security-message-copy">
@@ -19,30 +23,38 @@ export default function SecurityMessage({ notification, unread, onView }) {
       </p>
       <dl className="security-message-details">
         <div>
-          <dt>{notification.source === "camera" ? "Source" : "Video time"}</dt>
-          <dd>
-            {notification.source === "camera"
+          <dt>{isCameraEvent ? "Source" : "Video time"}</dt>
+          <dd className="plain">
+            {isCameraEvent
               ? `Camera #${notification.camera_id ?? "unknown"}`
               : formatVideoTime(notification.video_time_seconds)}
           </dd>
         </div>
         <div>
           <dt>Track ID</dt>
-          <dd>{notification.track_id == null ? "Unavailable" : `#${notification.track_id}`}</dd>
+          <dd>{notification.track_id == null ? "Unavailable" : String(notification.track_id)}</dd>
         </div>
         <div>
           <dt>Confidence</dt>
-          <dd>{Number.isFinite(confidence) ? `${(confidence * 100).toFixed(1)}%` : "Unavailable"}</dd>
+          <dd className="plain">
+            {Number.isFinite(confidence) ? `${(confidence * 100).toFixed(1)}%` : "Unavailable"}
+          </dd>
         </div>
       </dl>
-      <button
-        type="button"
-        className="notification-view-button"
-        onClick={() => onView(notification)}
-        disabled={!canView}
-      >
-        {canView ? "View Detection" : "Detection unavailable"}
-      </button>
+      <ButtonSmall canView={canView} onView={() => onView(notification)} />
     </article>
+  );
+}
+
+function ButtonSmall({ canView, onView }) {
+  return (
+    <button
+      type="button"
+      className="btn btn-secondary btn-sm"
+      onClick={onView}
+      disabled={!canView}
+    >
+      {canView ? "View Detection" : "Detection unavailable"}
+    </button>
   );
 }

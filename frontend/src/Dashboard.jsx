@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import Button from "./components/ui/Button";
+import Card from "./components/ui/Card";
+import EmptyState from "./components/ui/EmptyState";
+import Icon from "./components/ui/Icon";
+import PageHeader from "./components/ui/PageHeader";
 import SecurityMessage from "./SecurityMessage";
 
 const EMPTY_SUMMARY = {
@@ -11,6 +16,12 @@ const EMPTY_SUMMARY = {
   events_today: 0,
 };
 
+function startOfTodayIso() {
+  const now = new Date();
+  const local = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return local.toISOString();
+}
+
 export default function Dashboard({
   apiBase,
   notifications,
@@ -22,27 +33,46 @@ export default function Dashboard({
 }) {
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [zoneCount, setZoneCount] = useState(0);
+  const [intrusionsToday, setIntrusionsToday] = useState(null);
+  const [activeCameras, setActiveCameras] = useState(null);
+  const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [summaryResponse, zonesResponse] = await Promise.all([
+      const todayQuery = `event_type=intrusion&created_from=${encodeURIComponent(startOfTodayIso())}`;
+      const [summaryResponse, zonesResponse, intrusionsResponse, camerasResponse] = await Promise.all([
         fetch(`${apiBase}/api/events/summary`),
         fetch(`${apiBase}/api/zones`),
+        fetch(`${apiBase}/api/events?${todayQuery}`),
+        fetch(`${apiBase}/api/cameras`),
       ]);
-      if (!summaryResponse.ok || !zonesResponse.ok) {
-        const status = !summaryResponse.ok ? summaryResponse.status : zonesResponse.status;
-        throw new Error(`Server responded with status ${status}.`);
+      if (
+        !summaryResponse.ok ||
+        !zonesResponse.ok ||
+        !intrusionsResponse.ok ||
+        !camerasResponse.ok
+      ) {
+        throw new Error("One or more dashboard endpoints failed.");
       }
 
-      const [nextSummary, zones] = await Promise.all([
+      const [nextSummary, zones, intrusionsPage, nextCameras] = await Promise.all([
         summaryResponse.json(),
         zonesResponse.json(),
+        intrusionsResponse.json(),
+        camerasResponse.json(),
       ]);
       setSummary({ ...EMPTY_SUMMARY, ...nextSummary });
       setZoneCount(Array.isArray(zones) ? zones.length : 0);
+      setIntrusionsToday(intrusionsPage.total ?? intrusionsPage.items?.length ?? 0);
+      setActiveCameras(
+        Array.isArray(nextCameras)
+          ? nextCameras.filter((camera) => camera.monitor?.status === "running").length
+          : 0,
+      );
+      if (Array.isArray(nextCameras)) setCameras(nextCameras);
       setError(null);
     } catch (loadError) {
       setError(`Dashboard data could not be refreshed: ${loadError.message}`);
@@ -55,27 +85,97 @@ export default function Dashboard({
     loadDashboard();
   }, [loadDashboard, refreshToken]);
 
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const response = await fetch(`${apiBase}/api/cameras`);
+        if (!response.ok) return;
+        const nextCameras = await response.json();
+        if (Array.isArray(nextCameras)) setCameras(nextCameras);
+      } catch {
+        // The preview keeps the last known state during transient failures.
+      }
+    };
+    const timer = setInterval(poll, 5000);
+    return () => clearInterval(timer);
+  }, [apiBase]);
+
+  const runningCamera = cameras.find((camera) => camera.monitor?.status === "running");
   const recentNotifications = notifications.slice(0, 4);
+  const systemHealthy = !loading && !error && intrusionsToday === 0;
 
   return (
-    <div className="workspace-page dashboard-page">
-      <header className="workspace-header">
-        <div>
-          <span className="eyebrow">System overview</span>
-          <h1>Dashboard</h1>
-          <p>Monitor security activity and move quickly to the tools you need.</p>
-        </div>
-        <button type="button" className="button button-secondary refresh-button" onClick={loadDashboard}>
-          <RefreshIcon />
-          Refresh
-        </button>
-      </header>
+    <div>
+      <PageHeader
+        eyebrow="System overview"
+        title="Dashboard"
+        description="Monitor security activity and move quickly to the tools you need."
+        actions={
+          <Button variant="secondary" icon="refresh" onClick={loadDashboard} loading={loading}>
+            Refresh
+          </Button>
+        }
+      />
 
       {error && (
-        <p className="status status-error dashboard-status" role="alert">
+        <p className="status status-error" role="alert">
           {error}
         </p>
       )}
+
+      <section className={`hero-strip ${loading ? "" : systemHealthy ? "hero-healthy" : "hero-alert"}`}>
+        <div className="hero-status">
+          <span
+            className={`hero-status-icon tone-${loading ? "blue" : systemHealthy ? "green" : "red"}`}
+            aria-hidden="true"
+          >
+            <Icon name={loading ? "clock" : systemHealthy ? "shield" : "alert"} />
+          </span>
+          <span className="hero-status-copy">
+            <strong>{loading ? "Checking status..." : systemHealthy ? "All clear" : "Intrusion detected"}</strong>
+            <span>
+              {loading
+                ? "Gathering live status from the backend."
+                : systemHealthy
+                  ? "No restricted-zone intrusions recorded today."
+                  : `${intrusionsToday} intrusion(s) recorded today. Review recent alerts below.`}
+            </span>
+          </span>
+        </div>
+        <div className="hero-chips">
+          <span className="hero-chip">
+            <span className="hero-chip-label">
+              <small>Intrusions today</small>
+              <strong>{intrusionsToday == null ? "—" : intrusionsToday}</strong>
+            </span>
+            <span className={`hero-chip-dot ${loading ? "" : systemHealthy ? "status-online" : "status-offline"}`} />
+          </span>
+          <span className="hero-chip">
+            <span className="hero-chip-label">
+              <small>Active cameras</small>
+              <strong>{activeCameras == null ? "—" : activeCameras}</strong>
+            </span>
+          </span>
+          <span className="hero-chip">
+            <span className="hero-chip-label">
+              <small>Unread alerts</small>
+              <strong>{unreadCount}</strong>
+            </span>
+          </span>
+          <span className="hero-chip">
+            <span className="hero-chip-label">
+              <small>Events today</small>
+              <strong>{summary.events_today}</strong>
+            </span>
+          </span>
+          {!loading && (
+            <span className={`system-health-chip ${systemHealthy ? "ok" : "threat"}`}>
+              <span className="status-pill-dot" />
+              {systemHealthy ? "System ready" : "Threat active"}
+            </span>
+          )}
+        </div>
+      </section>
 
       <section className="metric-grid" aria-label="Event summary">
         <MetricCard
@@ -84,15 +184,15 @@ export default function Dashboard({
           detail={`${summary.events_today} recorded today`}
           tone="blue"
           loading={loading}
-          icon={<ActivityIcon />}
+          icon="events"
         />
         <MetricCard
           label="Security alerts"
           value={summary.total_intrusions}
-          detail={`${summary.video_events} video, ${summary.camera_events} live camera`}
+          detail={`${summary.video_events} video · ${summary.camera_events} live camera`}
           tone="red"
           loading={loading}
-          icon={<AlertIcon />}
+          icon="alert"
         />
         <MetricCard
           label="Object detections"
@@ -100,87 +200,123 @@ export default function Dashboard({
           detail={`${summary.image_events} image events total`}
           tone="green"
           loading={loading}
-          icon={<ScanIcon />}
+          icon="scan"
         />
         <MetricCard
           label="Restricted zones"
           value={zoneCount}
           detail="Saved monitoring areas"
-          tone="amber"
+          tone="blue"
           loading={loading}
-          icon={<ZoneIcon />}
+          icon="zone"
         />
       </section>
 
       <div className="dashboard-grid">
-        <section className="dashboard-panel recent-alerts-panel">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Latest activity</span>
-              <h2>Recent security alerts</h2>
-            </div>
-            <div className="section-heading-actions">
-              <span className="unread-chip">{unreadCount} unread</span>
-              <button type="button" className="text-button" onClick={() => onNavigate("events")}>
+        <Card
+          eyebrow="Latest activity"
+          title="Recent security alerts"
+          actions={
+            <div className="split" style={{ gap: "var(--sp-3)" }}>
+              <span className="count-chip">{unreadCount} unread</span>
+              <Button variant="ghost" iconRight="chevronRight" onClick={() => onNavigate("events")}>
                 View all
-              </button>
+              </Button>
             </div>
-          </div>
-
-          <div className="dashboard-alert-list">
-            {recentNotifications.length === 0 ? (
-              <div className="empty-state compact-empty">
-                <AlertIcon />
-                <strong>No intrusion alerts yet</strong>
-                <span>New restricted-zone alerts will appear here.</span>
-              </div>
-            ) : (
-              recentNotifications.map((notification) => (
+          }
+          flush
+        >
+          {recentNotifications.length === 0 ? (
+            <EmptyState
+              icon="bell"
+              title="No intrusion alerts yet"
+              description="New restricted-zone alerts will appear here."
+            />
+          ) : (
+            <div className="dashboard-alert-list">
+              {recentNotifications.map((notification) => (
                 <SecurityMessage
                   key={notification.id}
                   notification={notification}
                   unread={!readIds.has(String(notification.id))}
                   onView={onViewDetection}
                 />
-              ))
-            )}
-          </div>
-        </section>
-
-        <aside className="dashboard-panel quick-actions-panel">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Shortcuts</span>
-              <h2>Quick actions</h2>
+              ))}
             </div>
-          </div>
-          <div className="quick-action-list">
-            <QuickAction
-              title="Monitor a camera"
-              copy="Open a configured webcam and its live zone."
-              onClick={() => onNavigate("cameras")}
-              icon={<VideoIcon />}
-            />
-            <QuickAction
-              title="Analyze an image"
-              copy="Run object detection against your saved zone."
-              onClick={() => onNavigate("test")}
-              icon={<ScanIcon />}
-            />
-            <QuickAction
-              title="Process a video"
-              copy="Track intrusions and review playback alerts."
-              onClick={() => onNavigate("video")}
-              icon={<VideoIcon />}
-            />
-            <QuickAction
-              title="Configure a zone"
-              copy="Draw and save a restricted monitoring area."
-              onClick={() => onNavigate("setup")}
-              icon={<ZoneIcon />}
-            />
-          </div>
-        </aside>
+          )}
+        </Card>
+
+        <div className="dashboard-side">
+          <Card eyebrow="Live monitoring" title="Camera preview">
+            {runningCamera ? (
+              <>
+                <div className="dashboard-preview-wrap">
+                  <img
+                    className="dashboard-preview"
+                    src={`${apiBase}/api/cameras/${runningCamera.id}/monitor/stream`}
+                    alt={`Live preview from ${runningCamera.name}`}
+                  />
+                  <div className="dashboard-preview-overlay">
+                    <span className="dashboard-preview-live">Live</span>
+                    <span>
+                      <strong>{runningCamera.name}</strong>
+                      <span className="mono"> index {runningCamera.webcam_index}</span>
+                    </span>
+                  </div>
+                </div>
+                <div className="split" style={{ marginTop: "var(--sp-3)" }}>
+                  <Button
+                    variant="secondary"
+                    iconRight="chevronRight"
+                    onClick={() => onNavigate("cameras")}
+                  >
+                    Open Monitor
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <EmptyState
+                icon="camera"
+                title="No camera is live"
+                description="Start monitoring a camera to preview it here."
+                actions={
+                  <Button variant="primary" icon="camera" onClick={() => onNavigate("cameras")}>
+                    Go to Cameras
+                  </Button>
+                }
+              />
+            )}
+          </Card>
+
+          <Card eyebrow="Shortcuts" title="Quick actions">
+            <div className="quick-action-list">
+              <QuickAction
+                title="Monitor a camera"
+                copy="Open a configured webcam and its live zone."
+                onClick={() => onNavigate("cameras")}
+                icon="camera"
+              />
+              <QuickAction
+                title="Analyze an image"
+                copy="Run object detection against your saved zone."
+                onClick={() => onNavigate("test")}
+                icon="image"
+              />
+              <QuickAction
+                title="Process a video"
+                copy="Track intrusions and review playback alerts."
+                onClick={() => onNavigate("video")}
+                icon="video"
+              />
+              <QuickAction
+                title="Configure a zone"
+                copy="Draw and save a restricted monitoring area."
+                onClick={() => onNavigate("setup")}
+                icon="zone"
+              />
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -188,8 +324,10 @@ export default function Dashboard({
 
 function MetricCard({ label, value, detail, tone, loading, icon }) {
   return (
-    <article className={`metric-card metric-card-${tone}`}>
-      <div className="metric-card-icon">{icon}</div>
+    <article className={`metric-card tone-${tone}`}>
+      <span className="metric-card-icon" aria-hidden="true">
+        <Icon name={icon} />
+      </span>
       <div>
         <span className="metric-label">{label}</span>
         <strong className={loading ? "metric-value metric-value-loading" : "metric-value"}>
@@ -204,36 +342,16 @@ function MetricCard({ label, value, detail, tone, loading, icon }) {
 function QuickAction({ title, copy, onClick, icon }) {
   return (
     <button type="button" className="quick-action" onClick={onClick}>
-      <span className="quick-action-icon">{icon}</span>
+      <span className="quick-action-icon" aria-hidden="true">
+        <Icon name={icon} />
+      </span>
       <span>
         <strong>{title}</strong>
         <small>{copy}</small>
       </span>
-      <span className="quick-action-arrow" aria-hidden="true">→</span>
+      <span className="quick-action-arrow" aria-hidden="true">
+        <Icon name="chevronRight" />
+      </span>
     </button>
   );
-}
-
-function ActivityIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.4-6 4.2 12 2.4-6h5" /></svg>;
-}
-
-function AlertIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 20h18.4L12 3Z" /><path d="M12 9v4m0 3h.01" /></svg>;
-}
-
-function ScanIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V4h4m8 0h4v4m0 8v4h-4M8 20H4v-4" /><circle cx="12" cy="12" r="3" /></svg>;
-}
-
-function ZoneIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z" /><path d="m4 9 4-4m12 4-4-4M4 15l4 4m12-4-4 4" /></svg>;
-}
-
-function VideoIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="14" rx="2" /><path d="m16 10 5-3v10l-5-3" /></svg>;
-}
-
-function RefreshIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5" /><path d="M6.1 9a7 7 0 0 1 11.7-2.5L20 11M4 13l2.2 4.5A7 7 0 0 0 17.9 15" /></svg>;
 }

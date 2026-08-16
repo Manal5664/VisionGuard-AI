@@ -9,6 +9,14 @@ import {
 } from "./playbackAlertUtils";
 import useAlarm from "./useAlarm";
 import { useZoneDrawer } from "./useZoneDrawer";
+import Button from "./components/ui/Button";
+import Card from "./components/ui/Card";
+import FormField from "./components/ui/FormField";
+import Icon from "./components/ui/Icon";
+import PageHeader from "./components/ui/PageHeader";
+import ProgressBar from "./components/ui/ProgressBar";
+import StepIndicator from "./components/ui/StepIndicator";
+import SecurityAlertBanner from "./components/security/SecurityAlertBanner";
 
 const API_BASE = "http://127.0.0.1:8000";
 const POLL_INTERVAL_MS = 1500;
@@ -436,101 +444,98 @@ export default function VideoDetection({ onNotificationsChanged }) {
   const intrusionConfidence = Number(displayedIntrusionEvent?.confidence);
 
   return (
-    <div className="page">
-      <header className="header">
-        <h1>VisionGuard</h1>
-        <p className="subtitle">Video Detection</p>
-      </header>
+    <div>
+      <PageHeader
+        eyebrow="Video analysis"
+        title="Video Detection"
+        description="Upload video, draw a restricted zone, and review the intrusion timeline."
+      />
 
-      <main className="card">
-        <section className="panel">
-          <div className="panel-header">
-            <h2>1 · Choose a video</h2>
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={running}
-            >
-              {videoName ? "Change video" : "Choose video"}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/*"
-              hidden
-              onChange={handleFileChange}
-            />
+      <StepIndicator
+        steps={[
+          { id: "video", label: "Choose a video", sub: videoName || "MP4 / webm" },
+          { id: "zone", label: "Define the zone", sub: zoneName || "Unnamed" },
+          { id: "run", label: "Run & review", sub: isProcessing ? "Processing" : "Results" },
+        ]}
+        current={isProcessing ? 2 : job?.status === "completed" ? 3 : 0}
+      />
+
+      <Card
+        eyebrow="Step 1 · Source"
+        title="Choose a video"
+        className="video-step-panel"
+        actions={
+          <Button
+            variant="secondary"
+            icon="film"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={running}
+          >
+            {videoName ? "Change video" : "Choose video"}
+          </Button>
+        }
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/*"
+          hidden
+          onChange={handleFileChange}
+        />
+        {firstFrameUrl ? (
+          <div className="zone-draw-preview">
+            <div ref={wrapperRef} className="draw-canvas" {...pointerHandlers}>
+              <img
+                src={firstFrameUrl}
+                alt="First frame of selected video"
+                draggable={false}
+              />
+              {drawRect && (
+                <div
+                  className="zone-rect"
+                  style={{
+                    left: drawRect.x1,
+                    top: drawRect.y1,
+                    width: drawRect.x2 - drawRect.x1,
+                    height: drawRect.y2 - drawRect.y1,
+                  }}
+                />
+              )}
+            </div>
+            <span className="hint">
+              Click and drag over the first frame to draw the restricted zone for this video.
+            </span>
           </div>
-
-          <div className="preview-wrap">
-            {firstFrameUrl ? (
+        ) : (
+          <button
+            type="button"
+            className="drop-zone"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={running}
+          >
+            <span className="drop-zone-icon" aria-hidden="true">
+              <Icon name={extracting ? "clock" : "film"} />
+            </span>
+            {extracting ? (
+              <strong>Extracting the first frame…</strong>
+            ) : extractError ? (
               <>
-                <div ref={wrapperRef} className="draw-canvas" {...pointerHandlers}>
-                  <img
-                    src={firstFrameUrl}
-                    alt="First frame of selected video"
-                    draggable={false}
-                  />
-                  {drawRect && (
-                    <div
-                      className="zone-rect"
-                      style={{
-                        left: drawRect.x1,
-                        top: drawRect.y1,
-                        width: drawRect.x2 - drawRect.x1,
-                        height: drawRect.y2 - drawRect.y1,
-                      }}
-                    />
-                  )}
-                </div>
-                <p className="hint">
-                  Click and drag over the first frame to draw the restricted zone for this video.
-                </p>
+                <strong>Could not load the video</strong>
+                <span>{extractError}</span>
               </>
             ) : (
-              <div className="placeholder">
-                {extracting ? (
-                  <p>Extracting the first frame…</p>
-                ) : extractError ? (
-                  <>
-                    <p className="status status-error" role="status">
-                      {extractError}
-                    </p>
-                    <button
-                      type="button"
-                      className="button button-primary"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={running}
-                    >
-                      Choose a different video
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p>No video selected yet.</p>
-                    <button
-                      type="button"
-                      className="button button-primary"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={running}
-                    >
-                      Choose a video
-                    </button>
-                  </>
-                )}
-              </div>
+              <>
+                <strong>No video selected yet</strong>
+                <span>Choose a video file and VisionGuard will extract its first frame.</span>
+              </>
             )}
-          </div>
-        </section>
+          </button>
+        )}
+      </Card>
 
-        <section className="panel">
-          <div className="panel-header">
-            <h2>2 · Define the zone</h2>
-          </div>
-
-          <label className="field">
-            <span className="label">Zone name</span>
+      <Card eyebrow="Step 2 · Restricted area" title="Define the zone">
+        <div className="stack">
+          <FormField label="Zone name">
             <input
               type="text"
               value={zoneName}
@@ -538,12 +543,12 @@ export default function VideoDetection({ onNotificationsChanged }) {
               placeholder="e.g. Lobby camera"
               disabled={running}
             />
-          </label>
+          </FormField>
 
-          <div className="coords-row">
-            <span className="label">Video coordinates</span>
+          <div className="coords-box">
+            <span className="coords-label">Video coordinates</span>
             {previewCoords ? (
-              <code className="coords">
+              <code className="coords-value">
                 x1: {previewCoords.x1}, y1: {previewCoords.y1}, x2: {previewCoords.x2}, y2:{" "}
                 {previewCoords.y2}
               </code>
@@ -553,42 +558,38 @@ export default function VideoDetection({ onNotificationsChanged }) {
           </div>
 
           <div className="actions">
-            <button
-              type="button"
-              className="button button-primary"
+            <Button
+              variant="primary"
+              icon="play"
               onClick={handleRun}
               disabled={running}
             >
               {running ? "Starting…" : "Run Video Detection"}
-            </button>
-            <button
-              type="button"
-              className="button button-secondary"
+            </Button>
+            <Button
+              variant="secondary"
+              icon="close"
               onClick={handleClear}
               disabled={running}
             >
               Clear Zone
-            </button>
-            <button
-              type='button'
-              className='button button-secondary sound-toggle'
+            </Button>
+            <Button
+              variant="secondary"
+              icon={muted ? "volumeOff" : "volume"}
               onClick={handleMuteToggle}
               aria-pressed={muted}
             >
-              {muted ? 'Unmute alerts' : 'Mute alerts'}
-            </button>
+              {muted ? "Unmute alerts" : "Mute alerts"}
+            </Button>
           </div>
 
           {isProcessing && (
-            <div className="video-progress" role="status">
-              <div className="video-progress-label">
-                <span>{job ? statusText[job.status] : "Preparing…"}</span>
-                {job?.status === "processing" && <span>{job.progress}%</span>}
-              </div>
-              <div className="progress-track">
-                <div className="progress-bar" style={{ width: `${job?.progress ?? 0}%` }} />
-              </div>
-            </div>
+            <ProgressBar
+              label={job ? statusText[job.status] : "Preparing…"}
+              detail={job?.status === "processing" ? `${job.progress}%` : undefined}
+              value={job?.progress ?? 0}
+            />
           )}
 
           {status && !isProcessing && (
@@ -598,121 +599,105 @@ export default function VideoDetection({ onNotificationsChanged }) {
           )}
 
           {job?.status === "completed" && job.annotated_video_path && (
-            <div className="detect-results">
-              <div className="detect-summary">
-                <span>{job.processed_frames} frame(s) analyzed</span>
-                <span className={job.intrusion_count > 0 ? "badge badge-danger" : "badge badge-ok"}>
+            <div>
+              <div className="result-summary">
+                <BadgeInfo>{job.processed_frames} frame(s) analyzed</BadgeInfo>
+                <BadgeInfo tone={job.intrusion_count > 0 ? "danger" : "success"}>
                   {job.intrusion_count} intrusion frame(s)
-                </span>
-                <span className={job.event_count > 0 ? "badge badge-danger" : "badge badge-ok"}>
+                </BadgeInfo>
+                <BadgeInfo tone={job.event_count > 0 ? "danger" : "success"}>
                   {job.event_count} event(s)
-                </span>
+                </BadgeInfo>
               </div>
 
-              <div className="zone-used">
-                <span className="label">Zone used for this job</span>
+              <div className="zone-used-box">
+                <span className="coords-label">Zone used for this job</span>
                 {job.zone ? (
-                  <code className="coords">
+                  <code className="coords-value">
                     {job.zone.name} · x1: {job.zone.x1}, y1: {job.zone.y1}, x2: {job.zone.x2}, y2:{" "}
                     {job.zone.y2}
                   </code>
                 ) : (
-                  <p className="muted">No zone was applied to this job.</p>
+                  <span className="muted">No zone was applied to this job.</span>
                 )}
               </div>
 
               {activeIntrusionEvent && (
-                <div className='intrusion-alert' role='alert' aria-live='assertive' aria-atomic='true'>
-                  <div className='intrusion-alert-heading'>
-                    <span className='intrusion-alert-label'>SECURITY ALERT</span>
-                    <strong>
-                      A person entered the restricted area &quot;{intrusionZoneName}&quot;.
-                    </strong>
-                  </div>
-                  <div className='intrusion-alert-meta'>
-                    <span>Video time: {intrusionVideoTime}</span>
-                    <span>
-                      Track ID: {displayedIntrusionEvent?.track_id == null
-                        ? "Unavailable"
-                        : `#${displayedIntrusionEvent.track_id}`}
-                    </span>
-                    <span>
-                      Confidence: {Number.isFinite(intrusionConfidence)
-                        ? `${(intrusionConfidence * 100).toFixed(1)}%`
-                        : "Unavailable"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="intrusion-alert-action"
-                    onClick={() => {
-                      annotatedVideoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      annotatedVideoRef.current?.focus();
-                    }}
-                  >
-                    View Detection
-                  </button>
-                </div>
+                <SecurityAlertBanner
+                  label="Security Alert"
+                  title={`A person entered the restricted area "${intrusionZoneName}".`}
+                  meta={[
+                    `Video time: ${intrusionVideoTime}`,
+                    `Track ID: ${displayedIntrusionEvent?.track_id == null ? "Unavailable" : `#${displayedIntrusionEvent.track_id}`}`,
+                    `Confidence: ${Number.isFinite(intrusionConfidence) ? `${(intrusionConfidence * 100).toFixed(1)}%` : "Unavailable"}`,
+                  ]}
+                  actions={
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon="play"
+                      onClick={() => {
+                        annotatedVideoRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        annotatedVideoRef.current?.focus();
+                      }}
+                    >
+                      View Detection
+                    </Button>
+                  }
+                />
               )}
 
-              <div
-                className={
-                  intrusionPulseActive
-                    ? 'annotated-video-frame intrusion-active'
-                    : 'annotated-video-frame'
-                }
-              >
-                <video
-                ref={annotatedVideoRef}
-                className="annotated-img"
-                src={`${API_BASE}/${job.annotated_video_path.replace(/^\/+/, "")}`}
-                controls
-                onLoadedMetadata={handleVideoLoadedMetadata}
-                onPlay={handleVideoPlay}
-                onTimeUpdate={handleVideoTimeUpdate}
-                onSeeking={handleVideoSeeking}
-                onSeeked={handleVideoSeeked}
-                onEnded={handleVideoEnded}
-                />
+              <div className="video-stage">
+                <div
+                  className={`annotated-frame${intrusionPulseActive ? " intrusion-active" : ""}`}
+                >
+                  <video
+                    ref={annotatedVideoRef}
+                    className="video-results-media"
+                    src={`${API_BASE}/${job.annotated_video_path.replace(/^\/+/, "")}`}
+                    controls
+                    onLoadedMetadata={handleVideoLoadedMetadata}
+                    onPlay={handleVideoPlay}
+                    onTimeUpdate={handleVideoTimeUpdate}
+                    onSeeking={handleVideoSeeking}
+                    onSeeked={handleVideoSeeked}
+                    onEnded={handleVideoEnded}
+                  />
+                </div>
               </div>
 
               {job.events.length > 0 && (
-                <table className="detect-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Track ID</th>
-                      <th>Frame</th>
-                      <th>Timestamp</th>
-                      <th>Confidence</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <div>
+                  <div className="section-label">
+                    <Icon name="clock" />
+                    Intrusion timeline
+                  </div>
+                  <div className="event-timeline">
                     {job.events.map((event, index) => (
-                      <tr key={index}>
-                        <td>{index + 1}</td>
-                        <td>{event.track_id ?? "—"}</td>
-                        <td>{event.frame}</td>
-                        <td>{formatTimestamp(event.frame, job)}</td>
-                        <td>{(event.confidence * 100).toFixed(1)}%</td>
-                      </tr>
+                      <div className="event-item" key={index}>
+                        <span className="event-item-dot" aria-hidden="true" />
+                        <div className="event-item-copy">
+                          <strong>Intrusion · Track {event.track_id ?? "—"}</strong>
+                          <small>Frame {event.frame}</small>
+                        </div>
+                        <span className="event-item-meta">
+                          {formatTimestamp(event.frame, job)} · {(event.confidence * 100).toFixed(1)}%
+                        </span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
               )}
             </div>
           )}
-        </section>
-      </main>
-
-      <footer className="footer">
-        <p>
-          Video analysis runs in the background using the zone drawn for this job. Intrusion events
-          are stored in the database.
-        </p>
-      </footer>
+        </div>
+      </Card>
     </div>
   );
+}
+
+function BadgeInfo({ tone = "neutral", children }) {
+  return <span className={`badge badge-${tone}`}>{children}</span>;
 }
 
 function formatTimestamp(frame, job) {

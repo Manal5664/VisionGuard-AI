@@ -4,6 +4,7 @@ import {
   getDetectionSeekTime,
   getNotificationVideoUrl,
 } from "./notificationUtils";
+import Icon from "./components/ui/Icon";
 
 export default function DetectionViewer({ apiBase, notification, onClose }) {
   const mediaUrl = getNotificationVideoUrl(apiBase, notification.media_path);
@@ -22,32 +23,35 @@ export default function DetectionViewer({ apiBase, notification, onClose }) {
   }, [onClose]);
 
   return (
-    <div className="detection-viewer-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
-        className="detection-viewer"
+        className="modal"
         role="dialog"
         aria-modal="true"
         aria-label={isCameraEvent ? "Camera intrusion snapshot" : "Intrusion detection video"}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="detection-viewer-header">
+        <div className="modal-header">
           <div>
-            <span>SECURITY ALERT</span>
+            <span className="modal-header-eyebrow">
+              <Icon name="alert" />
+              Security alert
+            </span>
             <strong>{zoneName}</strong>
           </div>
-          <button type="button" className="detection-viewer-close" onClick={onClose} aria-label="Close">
-            ×
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
+            <Icon name="close" />
           </button>
         </div>
         {isCameraEvent ? (
           <img
-            className="detection-viewer-video detection-viewer-snapshot"
+            className="modal-media"
             src={mediaUrl}
             alt={`Intrusion detected in ${zoneName}`}
           />
         ) : (
           <video
-            className="detection-viewer-video"
+            className="modal-media"
             src={mediaUrl}
             controls
             autoPlay
@@ -58,7 +62,7 @@ export default function DetectionViewer({ apiBase, notification, onClose }) {
             }}
           />
         )}
-        <p className="detection-viewer-time">
+        <p className="modal-time">
           {isCameraEvent
             ? `Live camera #${notification.camera_id ?? "unknown"}`
             : `Video time: ${formatVideoTime(notification.video_time_seconds)}`}

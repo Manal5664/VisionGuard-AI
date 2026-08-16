@@ -1,9 +1,28 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VisionGuard · Restricted Zone Setup</title>
+    <meta name="theme-color" content="#0a0e14" />
+    <meta
+      name="description"
+      content="VisionGuard — AI-powered security command center for restricted-zone intrusion detection."
+    />
+    <title>VisionGuard · Security Command Center</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("vg-theme");
+          if (t !== "dark" && t !== "light" && t !== "midnight") t = "dark";
+          document.documentElement.setAttribute("data-theme", t);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) {
+            var c = { dark: "#0a0e14", light: "#f4f6f9", midnight: "#0b1220" }[t];
+            meta.setAttribute("content", c);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

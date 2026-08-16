@@ -1,0 +1,288 @@
+:root {
+  /* ------------------------------------------------------------------ */
+  /*  VisionGuard · Design tokens                                       */
+  /*  Palette contract:                                                 */
+  /*    red   -> danger / intrusion ONLY                                */
+  /*    green -> online / healthy ONLY                                  */
+  /*    blue  -> informational, interactive, selection                  */
+  /*                                                                    */
+  /*  Default theme: Dark Command Center.                               */
+  /*  Overrides: [data-theme="light"], [data-theme="midnight"].         */
+  /* ------------------------------------------------------------------ */
+
+  color-scheme: dark;
+
+  /* Backgrounds */
+  --bg-0: #0a0e14;
+  --bg-1: #0d1119;
+
+  /* Surfaces */
+  --surface: rgba(18, 23, 33, 0.72);
+  --surface-solid: #121722;
+  --surface-raised: #161d29;
+  --surface-glass: rgba(20, 26, 38, 0.55);
+
+  /* Borders */
+  --border: #1f2733;
+  --border-strong: #2a3442;
+
+  /* Text */
+  --text-hi: #e8edf4;
+  --text-mid: #a3aebd;
+  --text-low: #6b7686;
+
+  /* Accent — blue */
+  --accent: #3f8cff;
+  --accent-strong: #2f74e0;
+  --accent-soft: rgba(63, 140, 255, 0.12);
+  --accent-line: rgba(63, 140, 255, 0.38);
+
+  /* Danger — red */
+  --danger: #f0445e;
+  --danger-strong: #d63449;
+  --danger-soft: rgba(240, 68, 94, 0.12);
+  --danger-line: rgba(240, 68, 94, 0.4);
+
+  /* Success — green */
+  --success: #2fbf71;
+  --success-soft: rgba(47, 191, 113, 0.12);
+  --success-line: rgba(47, 191, 113, 0.38);
+
+  /* Focus */
+  --focus-ring: #5aa2ff;
+
+  /* Foreground on saturated accents */
+  --accent-fg: #ffffff;
+  --danger-fg: #ffffff;
+
+  /* Hover & recessed wells */
+  --surface-hover: #1c2330;
+  --well-bg: #1a2230;
+  --spinner-track: rgba(255, 255, 255, 0.15);
+
+  /* Neutral surface tints (white-alpha on dark surfaces) */
+  --tint-faint: rgba(255, 255, 255, 0.02);
+  --tint-row: rgba(255, 255, 255, 0.03);
+  --tint-subtle: rgba(255, 255, 255, 0.04);
+  --tint-hover: rgba(255, 255, 255, 0.05);
+  --tint-strong: rgba(255, 255, 255, 0.06);
+
+  /* Scrims & overlays */
+  --topbar-bg: rgba(10, 14, 20, 0.82);
+  --overlay-dim: rgba(5, 8, 12, 0.6);
+  --overlay-mid: rgba(5, 8, 12, 0.7);
+  --overlay-strong: rgba(4, 7, 11, 0.78);
+
+  /* Brand */
+  --brand-mark-bg: #17304f;
+  --brand-mark-fg: #ffffff;
+
+  /* Scrollbar */
+  --scroll-thumb: #26303e;
+  --scroll-thumb-hover: #33404f;
+
+  /* Chrome */
+  --sidebar-w: 240px;
+  --sidebar-w-collapsed: 76px;
+  --topbar-h: 60px;
+
+  /* Media stages (video/image letterbox surfaces) */
+  --stage-bg: #06090d;
+  --overlay-chip: rgba(9, 12, 17, 0.82);
+  --chip-line: rgba(255, 255, 255, 0.12);
+  --chip-live-bg: rgba(8, 20, 13, 0.8);
+  --stage-gradient: linear-gradient(180deg, transparent 45%, rgba(5, 8, 12, 0.88));
+
+  /* Text rendered over media (stays light in every theme) */
+  --media-text: #a3aebd;
+  --media-text-strong: #e8edf4;
+
+  /* Semantic glows */
+  --glow-success: rgba(47, 191, 113, 0.55);
+  --glow-accent: rgba(63, 140, 255, 0.45);
+  --glow-danger: rgba(240, 68, 94, 0.55);
+  --glow-danger-strong: rgba(240, 68, 94, 0.7);
+  --glow-danger-faint: rgba(240, 68, 94, 0.15);
+  --danger-hover: rgba(240, 68, 94, 0.2);
+  --danger-unread: rgba(240, 68, 94, 0.16);
+
+  /* Radius */
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 14px;
+
+  /* Elevation */
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 24px 70px rgba(0, 0, 0, 0.55);
+  --shadow-red: 0 0 22px rgba(240, 68, 94, 0.28);
+
+  /* Select chevron (SVG data URI cannot reference a variable) */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7686' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  /* Typography */
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* Spacing */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Light Professional                                                 */
+/* ------------------------------------------------------------------ */
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-0: #f4f6f9;
+  --bg-1: #ffffff;
+
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-solid: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-glass: rgba(255, 255, 255, 0.7);
+
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  --text-hi: #101828;
+  --text-mid: #475467;
+  --text-low: #667085;
+
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: rgba(37, 99, 235, 0.1);
+  --accent-line: rgba(37, 99, 235, 0.38);
+
+  --danger-soft: rgba(240, 68, 94, 0.1);
+  --danger-line: rgba(240, 68, 94, 0.38);
+
+  --success-soft: rgba(47, 191, 113, 0.12);
+  --success-line: rgba(47, 191, 113, 0.4);
+
+  --focus-ring: #2563eb;
+
+  --surface-hover: #f1f4f8;
+  --well-bg: #eef1f6;
+  --spinner-track: rgba(16, 24, 40, 0.15);
+
+  --tint-faint: rgba(16, 24, 40, 0.03);
+  --tint-row: rgba(16, 24, 40, 0.045);
+  --tint-subtle: rgba(16, 24, 40, 0.06);
+  --tint-hover: rgba(16, 24, 40, 0.08);
+  --tint-strong: rgba(16, 24, 40, 0.1);
+
+  --topbar-bg: rgba(255, 255, 255, 0.85);
+  --overlay-dim: rgba(16, 24, 40, 0.35);
+  --overlay-mid: rgba(16, 24, 40, 0.45);
+  --overlay-strong: rgba(16, 24, 40, 0.5);
+
+  --brand-mark-bg: #1d4ed8;
+  --brand-mark-fg: #ffffff;
+
+  --scroll-thumb: #c6cfdb;
+  --scroll-thumb-hover: #aab6c6;
+
+  --stage-bg: #e8ecf2;
+
+  --media-text: #d9e1ea;
+  --media-text-strong: #f4f7fb;
+
+  --glow-success: rgba(47, 191, 113, 0.4);
+  --glow-accent: rgba(37, 99, 235, 0.35);
+  --glow-danger: rgba(240, 68, 94, 0.4);
+  --glow-danger-strong: rgba(240, 68, 94, 0.55);
+  --glow-danger-faint: rgba(240, 68, 94, 0.12);
+  --danger-hover: rgba(240, 68, 94, 0.14);
+  --danger-unread: rgba(240, 68, 94, 0.1);
+
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(16, 24, 40, 0.05),
+    0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-pop: 0 24px 60px rgba(16, 24, 40, 0.18);
+  --shadow-red: 0 0 18px rgba(240, 68, 94, 0.18);
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Midnight Blue                                                      */
+/* ------------------------------------------------------------------ */
+
+[data-theme="midnight"] {
+  color-scheme: dark;
+
+  --bg-0: #0b1220;
+  --bg-1: #101a2e;
+
+  --surface: rgba(17, 27, 47, 0.8);
+  --surface-solid: #12203c;
+  --surface-raised: #17284a;
+  --surface-glass: rgba(20, 32, 56, 0.55);
+
+  --border: #24385a;
+  --border-strong: #30486e;
+
+  --text-hi: #e9eef7;
+  --text-mid: #a9b6cc;
+  --text-low: #71819d;
+
+  --accent: #4d9dff;
+  --accent-strong: #3a86ea;
+  --accent-soft: rgba(77, 157, 255, 0.14);
+  --accent-line: rgba(77, 157, 255, 0.4);
+
+  --danger-soft: rgba(240, 68, 94, 0.14);
+  --danger-line: rgba(240, 68, 94, 0.42);
+
+  --success-soft: rgba(47, 191, 113, 0.14);
+  --success-line: rgba(47, 191, 113, 0.4);
+
+  --focus-ring: #7cb2ff;
+
+  --surface-hover: #1c2c4e;
+  --well-bg: #16253f;
+  --spinner-track: rgba(255, 255, 255, 0.15);
+
+  --tint-faint: rgba(255, 255, 255, 0.02);
+  --tint-row: rgba(255, 255, 255, 0.03);
+  --tint-subtle: rgba(255, 255, 255, 0.04);
+  --tint-hover: rgba(255, 255, 255, 0.05);
+  --tint-strong: rgba(255, 255, 255, 0.06);
+
+  --topbar-bg: rgba(11, 18, 32, 0.82);
+  --overlay-dim: rgba(6, 10, 18, 0.62);
+  --overlay-mid: rgba(6, 10, 18, 0.72);
+  --overlay-strong: rgba(5, 8, 15, 0.8);
+
+  --brand-mark-bg: #1c3d6b;
+  --brand-mark-fg: #ffffff;
+
+  --scroll-thumb: #2b3c5c;
+  --scroll-thumb-hover: #3a4f75;
+
+  --stage-bg: #080e1a;
+  --overlay-chip: rgba(9, 13, 20, 0.82);
+
+  --media-text: #b6c2d6;
+  --media-text-strong: #e9eef7;
+
+  --glow-success: rgba(47, 191, 113, 0.5);
+  --glow-accent: rgba(77, 157, 255, 0.5);
+  --glow-danger: rgba(240, 68, 94, 0.5);
+  --glow-danger-strong: rgba(240, 68, 94, 0.65);
+  --glow-danger-faint: rgba(240, 68, 94, 0.14);
+  --danger-hover: rgba(240, 68, 94, 0.18);
+  --danger-unread: rgba(240, 68, 94, 0.15);
+
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px rgba(2, 6, 14, 0.45);
+  --shadow-pop: 0 24px 70px rgba(2, 6, 14, 0.6);
+  --shadow-red: 0 0 22px rgba(240, 68, 94, 0.24);
+
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371819d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}

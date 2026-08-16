@@ -6,11 +6,22 @@ import {
   unpackEventsPage,
 } from "./eventUtils";
 import { formatVideoTime } from "./notificationUtils";
+import Button from "./components/ui/Button";
+import EmptyState from "./components/ui/EmptyState";
+import Icon from "./components/ui/Icon";
+import PageHeader from "./components/ui/PageHeader";
+import Spinner from "./components/ui/Spinner";
 
 const DEFAULT_FILTERS = {
   eventType: "all",
   source: "all",
   dateRange: "all",
+};
+
+const SOURCE_CLASS = {
+  video: "source-video",
+  image: "source-image",
+  camera: "source-camera",
 };
 
 export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
@@ -87,20 +98,20 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
   const filtersActive = Object.values(filters).some((value) => value !== "all");
 
   return (
-    <div className="workspace-page events-page">
-      <header className="workspace-header">
-        <div>
-          <span className="eyebrow">Activity log</span>
-          <h1>Events</h1>
-          <p>Review detections and security alerts recorded by VisionGuard.</p>
-        </div>
-        <span className="event-count-label">
-          {loading ? "Loading…" : `${events.length} event${events.length === 1 ? "" : "s"} shown`}
-        </span>
-      </header>
+    <div>
+      <PageHeader
+        eyebrow="Activity log"
+        title="Events"
+        description="Review detections and security alerts recorded by VisionGuard."
+        actions={
+          <span className="count-chip">
+            {loading ? "Loading…" : `${events.length} event${events.length === 1 ? "" : "s"} shown`}
+          </span>
+        }
+      />
 
-      <section className="event-filters" aria-label="Event filters">
-        <label>
+      <section className="filters" aria-label="Event filters">
+        <label className="filter">
           <span>Event type</span>
           <select
             value={filters.eventType}
@@ -111,7 +122,7 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
             <option value="detection">Detections</option>
           </select>
         </label>
-        <label>
+        <label className="filter">
           <span>Source</span>
           <select
             value={filters.source}
@@ -123,7 +134,7 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
             <option value="camera">Camera</option>
           </select>
         </label>
-        <label>
+        <label className="filter">
           <span>Date</span>
           <select
             value={filters.dateRange}
@@ -136,13 +147,9 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
           </select>
         </label>
         {filtersActive && (
-          <button
-            type="button"
-            className="clear-filters-button"
-            onClick={() => setFilters(DEFAULT_FILTERS)}
-          >
+          <Button variant="ghost" icon="close" onClick={() => setFilters(DEFAULT_FILTERS)}>
             Clear filters
-          </button>
+          </Button>
         )}
       </section>
 
@@ -152,20 +159,21 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
         </p>
       )}
 
-      <section className="events-card" aria-live="polite">
+      <section className="panel" aria-live="polite">
         {loading ? (
-          <div className="events-loading">
-            <span className="loading-spinner" />
+          <div className="loading-row">
+            <Spinner size="sm" />
             Loading events…
           </div>
         ) : events.length === 0 ? (
-          <div className="empty-state">
-            <strong>No matching events</strong>
-            <span>Try changing the filters or run a new detection.</span>
-          </div>
+          <EmptyState
+            icon="events"
+            title="No matching events"
+            description="Try changing the filters or run a new detection."
+          />
         ) : (
-          <div className="events-table-wrap">
-            <table className="events-table">
+          <div className="table-wrap">
+            <table className="table table-hover">
               <thead>
                 <tr>
                   <th>Event</th>
@@ -173,7 +181,9 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
                   <th>Object</th>
                   <th>Confidence</th>
                   <th>Recorded</th>
-                  <th><span className="sr-only">Action</span></th>
+                  <th>
+                    <span className="sr-only">Action</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -183,11 +193,14 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
                   return (
                     <tr key={event.id}>
                       <td data-label="Event">
-                        <div className="event-type-cell">
-                          <span className={`event-type-icon event-type-icon-${event.event_type}`}>
-                            {event.event_type === "intrusion" ? "!" : "✓"}
+                        <div className="event-cell">
+                          <span
+                            className={`event-cell-icon event-cell-icon-${event.event_type}`}
+                            aria-hidden="true"
+                          >
+                            {event.event_type === "intrusion" ? <Icon name="alert" size={14} /> : <Icon name="check" size={14} />}
                           </span>
-                          <span>
+                          <span className="event-cell-copy">
                             <strong>
                               {event.event_type === "intrusion" ? "Security alert" : "Detection"}
                             </strong>
@@ -198,10 +211,20 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
                                   : `Event #${event.id}`)}
                             </small>
                           </span>
+                          <span
+                            className={`severity-pill ${event.event_type === "intrusion" ? "severity-threat" : "severity-detection"}`}
+                          >
+                            {event.event_type === "intrusion" ? (
+                              <Icon name="alert" size={11} />
+                            ) : (
+                              <Icon name="check" size={11} />
+                            )}
+                            {event.event_type === "intrusion" ? "Intrusion" : "Detection"}
+                          </span>
                         </div>
                       </td>
                       <td data-label="Source">
-                        <span className={`source-badge source-badge-${event.source}`}>
+                        <span className={`source-badge ${SOURCE_CLASS[event.source] || "source-image"}`}>
                           {event.source === "video"
                             ? "Video"
                             : event.source === "camera"
@@ -209,10 +232,8 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
                               : "Image"}
                         </span>
                       </td>
-                      <td data-label="Object" className="event-object">
-                        {event.object_type || "Unknown"}
-                      </td>
-                      <td data-label="Confidence" className="event-confidence">
+                      <td data-label="Object" className="event-object">{event.object_type || "Unknown"}</td>
+                      <td data-label="Confidence" className="mono">
                         {Number.isFinite(confidence)
                           ? `${(confidence * 100).toFixed(1)}%`
                           : "Unavailable"}
@@ -222,16 +243,19 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
                           {formatEventDate(event.created_at)}
                         </time>
                       </td>
-                      <td className="event-action-cell">
-                        <button
-                          type="button"
-                          className="event-view-button"
-                          onClick={() => onViewDetection(event)}
-                          disabled={!canView}
-                          title={canView ? undefined : "Video is unavailable for this event"}
-                        >
-                          {canView ? "View Detection" : "Unavailable"}
-                        </button>
+                      <td data-label="Action">
+                        {canView ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            iconRight="chevronRight"
+                            onClick={() => onViewDetection(event)}
+                          >
+                            View Detection
+                          </Button>
+                        ) : (
+                          <span className="row-unavailable">No video</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -243,14 +267,9 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
 
         {!loading && hasMore && (
           <div className="load-more-row">
-            <button
-              type="button"
-              className="button button-secondary"
-              onClick={loadMore}
-              disabled={loadingMore}
-            >
+            <Button variant="secondary" onClick={loadMore} loading={loadingMore}>
               {loadingMore ? "Loading…" : "Load More"}
-            </button>
+            </Button>
           </div>
         )}
       </section>
