@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import String, Float, Integer, DateTime, Index
+from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -30,6 +30,11 @@ class Event(Base):
     event_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     zone_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     video_time_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    camera_id: Mapped[int | None] = mapped_column(
+        ForeignKey("cameras.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,

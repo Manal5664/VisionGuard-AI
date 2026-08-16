@@ -19,8 +19,12 @@ export default function SecurityMessage({ notification, unread, onView }) {
       </p>
       <dl className="security-message-details">
         <div>
-          <dt>Video time</dt>
-          <dd>{formatVideoTime(notification.video_time_seconds)}</dd>
+          <dt>{notification.source === "camera" ? "Source" : "Video time"}</dt>
+          <dd>
+            {notification.source === "camera"
+              ? `Camera #${notification.camera_id ?? "unknown"}`
+              : formatVideoTime(notification.video_time_seconds)}
+          </dd>
         </div>
         <div>
           <dt>Track ID</dt>

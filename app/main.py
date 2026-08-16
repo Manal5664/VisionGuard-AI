@@ -2,11 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.cameras import router as cameras_router
 from app.api.detection import router as detection_router
 from app.api.health import router as health_router
 from app.api.events import router as events_router
 from app.api.video_detection import router as video_detection_router
 from app.api.zones import router as zones_router
+from app.services.camera_monitor import camera_manager
 
 app = FastAPI(
     title="VisionGuard API",
@@ -23,6 +25,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+app.include_router(
+    cameras_router,
+    prefix="/api",
+    tags=["Cameras"],
 )
 app.include_router(
     events_router,
@@ -53,6 +60,11 @@ app.include_router(
 )
 
 app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+
+
+@app.on_event("shutdown")
+def stop_camera_monitors() -> None:
+    camera_manager.stop_all()
 
 @app.get("/")
 def root():

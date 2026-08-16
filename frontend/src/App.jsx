@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { displayToImage, normalizeRect } from "./coords";
 import { useZoneDrawer } from "./useZoneDrawer";
+import Cameras from "./Cameras";
 import Dashboard from "./Dashboard";
 import DetectionTest from "./DetectionTest";
 import DetectionViewer from "./DetectionViewer";
@@ -13,6 +14,7 @@ const API_BASE = "http://127.0.0.1:8000";
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "events", label: "Events" },
+  { id: "cameras", label: "Cameras" },
   { id: "setup", label: "Restricted Zones" },
   { id: "test", label: "Image Detection" },
   { id: "video", label: "Video Detection" },
@@ -220,6 +222,11 @@ export default function App() {
           apiBase={API_BASE}
           onViewDetection={handleViewDetection}
           refreshToken={eventRefreshToken}
+        />
+      ) : view === "cameras" ? (
+        <Cameras
+          apiBase={API_BASE}
+          onEventsChanged={handleVideoEventsChanged}
         />
       ) : view === "setup" ? (
         <div className="page">

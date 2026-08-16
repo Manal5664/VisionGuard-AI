@@ -7,6 +7,7 @@ const EMPTY_SUMMARY = {
   total_detections: 0,
   image_events: 0,
   video_events: 0,
+  camera_events: 0,
   events_today: 0,
 };
 
@@ -88,7 +89,7 @@ export default function Dashboard({
         <MetricCard
           label="Security alerts"
           value={summary.total_intrusions}
-          detail={`${summary.video_events} from video`}
+          detail={`${summary.video_events} video, ${summary.camera_events} live camera`}
           tone="red"
           loading={loading}
           icon={<AlertIcon />}
@@ -130,7 +131,7 @@ export default function Dashboard({
             {recentNotifications.length === 0 ? (
               <div className="empty-state compact-empty">
                 <AlertIcon />
-                <strong>No video intrusion alerts yet</strong>
+                <strong>No intrusion alerts yet</strong>
                 <span>New restricted-zone alerts will appear here.</span>
               </div>
             ) : (
@@ -154,6 +155,12 @@ export default function Dashboard({
             </div>
           </div>
           <div className="quick-action-list">
+            <QuickAction
+              title="Monitor a camera"
+              copy="Open a configured webcam and its live zone."
+              onClick={() => onNavigate("cameras")}
+              icon={<VideoIcon />}
+            />
             <QuickAction
               title="Analyze an image"
               copy="Run object detection against your saved zone."

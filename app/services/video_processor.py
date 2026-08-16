@@ -6,7 +6,8 @@ import cv2
 
 from app.services.annotation import draw_detections
 from app.services.detector import Detector
-from app.services.intrusion import Coordinates, is_person_intrusion
+from app.services.intrusion import Coordinates
+from app.services.intrusion_tracker import IntrusionTracker
 
 
 VIDEO_CODEC = "mp4v"
@@ -88,9 +89,10 @@ class VideoProcessor:
 
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        active_tracks = set()
-        last_event_frames = {}
-        last_untracked_event_frame = float("-inf")
+        intrusion_tracker = IntrusionTracker(
+            self.restricted_zone,
+            cooldown_frames,
+        )
 
         events = []
         intrusion_frame_count = 0
@@ -118,43 +120,12 @@ class VideoProcessor:
                     if frame_index % self.sample_every == 0:
                         detections = self.detector.detect_frame(frame)
 
-                        intruding_tracks = set()
-                        for detection in detections:
-                            is_intrusion = False
-                            if self.restricted_zone is not None:
-                                is_intrusion = is_person_intrusion(
-                                    detection["class_name"],
-                                    detection["bbox"],
-                                    self.restricted_zone,
-                                )
-                            detection["is_intrusion"] = is_intrusion
-                            if not is_intrusion:
-                                continue
-
-                            intrusion_frame_count += 1
-                            track_id = detection.get("track_id")
-                            confidence = detection["confidence"]
-
-                            if track_id is not None:
-                                intruding_tracks.add(track_id)
-                                last_seen = last_event_frames.get(track_id, float("-inf"))
-                                if track_id not in active_tracks:
-                                    events.append(
-                                        {"frame": frame_index, "track_id": track_id, "confidence": confidence}
-                                    )
-                                    last_event_frames[track_id] = frame_index
-                                elif frame_index - last_seen >= cooldown_frames:
-                                    events.append(
-                                        {"frame": frame_index, "track_id": track_id, "confidence": confidence}
-                                    )
-                                    last_event_frames[track_id] = frame_index
-                            elif frame_index - last_untracked_event_frame >= cooldown_frames:
-                                events.append(
-                                    {"frame": frame_index, "track_id": None, "confidence": confidence}
-                                )
-                                last_untracked_event_frame = frame_index
-
-                        active_tracks = intruding_tracks
+                        intrusion_result = intrusion_tracker.process_frame(
+                            detections,
+                            frame_index,
+                        )
+                        intrusion_frame_count += intrusion_result["intrusion_count"]
+                        events.extend(intrusion_result["events"])
 
                         annotated = draw_detections(frame, detections, self.restricted_zone)
                         writer.write(annotated)

@@ -26,6 +26,7 @@ def _serialize_event(event: Event) -> dict:
         "event_sequence": event.event_sequence,
         "zone_name": event.zone_name,
         "video_time_seconds": event.video_time_seconds,
+        "camera_id": event.camera_id,
         "created_at": event.created_at,
     }
 
@@ -33,7 +34,7 @@ def _serialize_event(event: Event) -> dict:
 @router.get("/events")
 def get_events(
     event_type: Literal["detection", "intrusion"] | None = Query(None),
-    source: Literal["image", "video"] | None = Query(None),
+    source: Literal["image", "video", "camera"] | None = Query(None),
     before_id: int | None = Query(None, ge=1),
     created_from: datetime | None = Query(None),
     created_to: datetime | None = Query(None),
@@ -85,6 +86,7 @@ def get_event_summary():
             total_detections,
             image_events,
             video_events,
+            camera_events,
             events_today,
         ) = db.query(
             func.count(Event.id),
@@ -92,6 +94,7 @@ def get_event_summary():
             func.sum(case((Event.event_type == "detection", 1), else_=0)),
             func.sum(case((Event.source == "image", 1), else_=0)),
             func.sum(case((Event.source == "video", 1), else_=0)),
+            func.sum(case((Event.source == "camera", 1), else_=0)),
             func.sum(case((Event.created_at >= today_start, 1), else_=0)),
         ).one()
 
@@ -101,6 +104,7 @@ def get_event_summary():
             "total_detections": int(total_detections or 0),
             "image_events": int(image_events or 0),
             "video_events": int(video_events or 0),
+            "camera_events": int(camera_events or 0),
             "events_today": int(events_today or 0),
         }
 
@@ -118,7 +122,7 @@ def get_notifications(
     try:
         query = db.query(Event).filter(
             Event.event_type == "intrusion",
-            Event.source == "video",
+            Event.source.in_(("video", "camera")),
         )
         if before_id is not None:
             query = query.filter(Event.id < before_id)

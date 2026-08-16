@@ -120,6 +120,7 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
             <option value="all">All sources</option>
             <option value="image">Image</option>
             <option value="video">Video</option>
+            <option value="camera">Camera</option>
           </select>
         </label>
         <label>
@@ -201,7 +202,11 @@ export default function EventsPage({ apiBase, onViewDetection, refreshToken }) {
                       </td>
                       <td data-label="Source">
                         <span className={`source-badge source-badge-${event.source}`}>
-                          {event.source === "video" ? "Video" : "Image"}
+                          {event.source === "video"
+                            ? "Video"
+                            : event.source === "camera"
+                              ? "Camera"
+                              : "Image"}
                         </span>
                       </td>
                       <td data-label="Object" className="event-object">

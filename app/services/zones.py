@@ -17,7 +17,12 @@ def get_restricted_zone() -> Coordinates | None:
     db = SessionLocal()
 
     try:
-        zone = db.query(RestrictedZone).order_by(RestrictedZone.id.asc()).first()
+        zone = (
+            db.query(RestrictedZone)
+            .filter(RestrictedZone.camera_id.is_(None))
+            .order_by(RestrictedZone.id.asc())
+            .first()
+        )
         return to_zone_coordinates(zone) if zone else None
 
     finally:

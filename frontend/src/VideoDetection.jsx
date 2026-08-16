@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { displayToImage, normalizeRect } from "./coords";
 import { formatVideoTime } from "./notificationUtils";
+import {
+  getCrossedPlaybackEvents,
+  getPlaybackEvents,
+  PLAYBACK_TIME_EPSILON_SECONDS,
+  rearmPlaybackEventsAfterBackwardSeek,
+} from "./playbackAlertUtils";
+import useAlarm from "./useAlarm";
 import { useZoneDrawer } from "./useZoneDrawer";
 
 const API_BASE = "http://127.0.0.1:8000";
 const POLL_INTERVAL_MS = 1500;
 const FIRST_FRAME_TIME = 0.1;
 const FRAME_EXTRACT_TIMEOUT_MS = 15000;
-const ALERT_PULSE_MS = 1100;
-const ALERT_GAP_MS = 120;
-const PLAYBACK_TIME_EPSILON_SECONDS = 0.01;
-
 const statusText = {
   queued: "Waiting in queue…",
   processing: "Analyzing frames…",
@@ -114,20 +117,21 @@ export default function VideoDetection({ onNotificationsChanged }) {
   const [running, setRunning] = useState(false);
   const [job, setJob] = useState(null);
   const [status, setStatus] = useState(null);
-  const [muted, setMuted] = useState(false);
-  const [activeIntrusionEvent, setActiveIntrusionEvent] = useState(null);
-  const [intrusionPulseActive, setIntrusionPulseActive] = useState(false);
+  const {
+    muted,
+    activeEvent: activeIntrusionEvent,
+    pulseActive: intrusionPulseActive,
+    unlockAudio,
+    toggleMuted: handleMuteToggle,
+    enqueueAlerts,
+    clearAlerts: clearPlaybackAlertPresentation,
+  } = useAlarm();
 
   const fileInputRef = useRef(null);
   const selectedFileRef = useRef(null);
   const pollTimerRef = useRef(null);
   const extractTokenRef = useRef(0);
-  const audioContextRef = useRef(null);
-  const mutedRef = useRef(false);
   const triggeredPlaybackEventKeysRef = useRef(new Set());
-  const alertQueueRef = useRef([]);
-  const alertQueueRunningRef = useRef(false);
-  const alertTimerRef = useRef(null);
   const previousPlaybackTimeRef = useRef(0);
   const seekStartTimeRef = useRef(0);
   const isSeekingRef = useRef(false);
@@ -146,10 +150,6 @@ export default function VideoDetection({ onNotificationsChanged }) {
   useEffect(() => {
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-      if (alertTimerRef.current) clearTimeout(alertTimerRef.current);
-      if (audioContextRef.current?.state !== 'closed') {
-        audioContextRef.current?.close().catch(() => {});
-      }
       extractTokenRef.current += 1;
     };
   }, []);
@@ -161,110 +161,12 @@ export default function VideoDetection({ onNotificationsChanged }) {
     }
   };
 
-  const clearPlaybackAlertPresentation = () => {
-    if (alertTimerRef.current) {
-      clearTimeout(alertTimerRef.current);
-      alertTimerRef.current = null;
-    }
-    alertQueueRef.current = [];
-    alertQueueRunningRef.current = false;
-    setActiveIntrusionEvent(null);
-    setIntrusionPulseActive(false);
-  };
-
   const resetPlaybackAlerts = (previousTime = 0) => {
     clearPlaybackAlertPresentation();
     triggeredPlaybackEventKeysRef.current.clear();
     previousPlaybackTimeRef.current = previousTime;
     seekStartTimeRef.current = previousTime;
     isSeekingRef.current = false;
-  };
-
-  const unlockAudio = () => {
-    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextConstructor) return null;
-
-    try {
-      if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-        audioContextRef.current = new AudioContextConstructor();
-      }
-
-      if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(() => {});
-      }
-
-      return audioContextRef.current;
-    } catch {
-      audioContextRef.current = null;
-      return null;
-    }
-  };
-
-  const playAlertBeep = () => {
-    const audioContext = audioContextRef.current;
-    if (mutedRef.current || !audioContext || audioContext.state !== 'running') return;
-
-    try {
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      const now = audioContext.currentTime;
-
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, now);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start(now);
-      oscillator.stop(now + 0.2);
-    } catch {
-      // Audio failures must not interrupt completed detection results.
-    }
-  };
-
-  const presentNextIntrusionEvent = () => {
-    const nextPlaybackEvent = alertQueueRef.current.shift();
-    if (!nextPlaybackEvent) {
-      alertQueueRunningRef.current = false;
-      setIntrusionPulseActive(false);
-      return;
-    }
-
-    alertQueueRunningRef.current = true;
-    setActiveIntrusionEvent(nextPlaybackEvent.event);
-    setIntrusionPulseActive(true);
-    playAlertBeep();
-
-    alertTimerRef.current = setTimeout(() => {
-      setActiveIntrusionEvent(null);
-      setIntrusionPulseActive(false);
-      alertTimerRef.current = null;
-
-      if (alertQueueRef.current.length > 0) {
-        alertTimerRef.current = setTimeout(() => {
-          alertTimerRef.current = null;
-          presentNextIntrusionEvent();
-        }, ALERT_GAP_MS);
-      } else {
-        alertQueueRunningRef.current = false;
-      }
-    }, ALERT_PULSE_MS);
-  };
-
-  const enqueuePlaybackAlerts = (playbackEvents) => {
-    alertQueueRef.current.push(...playbackEvents);
-
-    if (!alertQueueRunningRef.current && alertQueueRef.current.length > 0) {
-      presentNextIntrusionEvent();
-    }
-  };
-
-  const handleMuteToggle = () => {
-    const nextMuted = !mutedRef.current;
-    mutedRef.current = nextMuted;
-    setMuted(nextMuted);
-    if (!nextMuted) unlockAudio();
   };
 
   const handleVideoLoadedMetadata = (event) => {
@@ -307,7 +209,9 @@ export default function VideoDetection({ onNotificationsChanged }) {
 
     crossedEvents.forEach(({ key }) => triggeredPlaybackEventKeysRef.current.add(key));
     previousPlaybackTimeRef.current = currentTime;
-    if (crossedEvents.length > 0) enqueuePlaybackAlerts(crossedEvents);
+    if (crossedEvents.length > 0) {
+      enqueueAlerts(crossedEvents.map(({ event: intrusionEvent }) => intrusionEvent));
+    }
   };
 
   const handleVideoSeeking = () => {
@@ -827,58 +731,4 @@ function getEventVideoTimeSeconds(event, job) {
   const fps = Number(job?.fps);
   if (!Number.isFinite(frame) || !Number.isFinite(fps) || fps <= 0) return null;
   return frame / fps;
-}
-
-function getPlaybackEvents(job) {
-  const fps = Number(job?.fps);
-  if (!Number.isFinite(fps) || fps <= 0 || !Array.isArray(job?.events)) return [];
-
-  return job.events
-    .map((event, index) => {
-      if (event?.frame == null) return null;
-      const frame = Number(event.frame);
-      if (!Number.isFinite(frame) || frame < 0) return null;
-
-      return {
-        event,
-        key: [
-          job.id ?? 'job',
-          index,
-          event.frame,
-          event.track_id ?? 'untracked',
-        ].join(':'),
-        timeSeconds: frame / fps,
-      };
-    })
-    .filter(Boolean)
-    .sort((first, second) => first.timeSeconds - second.timeSeconds);
-}
-
-function getCrossedPlaybackEvents(
-  playbackEvents,
-  previousTime,
-  currentTime,
-  triggeredEventKeys,
-) {
-  if (
-    !Number.isFinite(previousTime) ||
-    !Number.isFinite(currentTime) ||
-    currentTime <= previousTime
-  ) {
-    return [];
-  }
-
-  return playbackEvents.filter(
-    ({ key, timeSeconds }) =>
-      !triggeredEventKeys.has(key) &&
-      timeSeconds > previousTime &&
-      timeSeconds <= currentTime,
-  );
-}
-
-function rearmPlaybackEventsAfterBackwardSeek(playbackEvents, triggeredEventKeys, targetTime) {
-  const rearmFrom = targetTime - PLAYBACK_TIME_EPSILON_SECONDS;
-  playbackEvents.forEach(({ key, timeSeconds }) => {
-    if (timeSeconds >= rearmFrom) triggeredEventKeys.delete(key);
-  });
 }

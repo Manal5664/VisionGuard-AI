@@ -60,7 +60,12 @@ def get_zones():
     db = SessionLocal()
 
     try:
-        zones = db.query(RestrictedZone).order_by(RestrictedZone.id.asc()).all()
+        zones = (
+            db.query(RestrictedZone)
+            .filter(RestrictedZone.camera_id.is_(None))
+            .order_by(RestrictedZone.id.asc())
+            .all()
+        )
 
         return [
             {
