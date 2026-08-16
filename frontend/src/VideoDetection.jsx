@@ -17,8 +17,8 @@ import PageHeader from "./components/ui/PageHeader";
 import ProgressBar from "./components/ui/ProgressBar";
 import StepIndicator from "./components/ui/StepIndicator";
 import SecurityAlertBanner from "./components/security/SecurityAlertBanner";
+import { API_BASE } from "./config";
 
-const API_BASE = "http://127.0.0.1:8000";
 const POLL_INTERVAL_MS = 1500;
 const FIRST_FRAME_TIME = 0.1;
 const FRAME_EXTRACT_TIMEOUT_MS = 15000;

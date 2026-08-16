@@ -8,6 +8,7 @@ from app.api.health import router as health_router
 from app.api.events import router as events_router
 from app.api.video_detection import router as video_detection_router
 from app.api.zones import router as zones_router
+from app.core.config import get_frontend_origins
 from app.services.camera_monitor import camera_manager
 
 app = FastAPI(
@@ -18,10 +19,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=get_frontend_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

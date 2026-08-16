@@ -4,8 +4,7 @@ import Card from "./components/ui/Card";
 import Icon from "./components/ui/Icon";
 import PageHeader from "./components/ui/PageHeader";
 import StepIndicator from "./components/ui/StepIndicator";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { API_BASE } from "./config";
 
 export default function DetectionTest({ onEventsChanged }) {
   const [imageUrl, setImageUrl] = useState(null);

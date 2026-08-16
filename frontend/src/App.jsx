@@ -8,9 +8,9 @@ import EventsPage from "./EventsPage";
 import NotificationCenter from "./NotificationCenter";
 import VideoDetection from "./VideoDetection";
 import ZonesPage from "./ZonesPage";
+import { API_BASE } from "./config";
 import useNotifications from "./useNotifications";
 
-const API_BASE = "http://127.0.0.1:8000";
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "dashboard" },
   { id: "cameras", label: "Cameras", icon: "camera" },
