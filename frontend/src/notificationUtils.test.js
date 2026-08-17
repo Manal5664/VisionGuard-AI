@@ -6,6 +6,7 @@ import {
   deduplicateNotifications,
   formatVideoTime,
   getDetectionSeekTime,
+  getMediaUrl,
   getNotificationVideoUrl,
   loadReadNotificationIds,
   markNotificationsRead,
@@ -48,6 +49,12 @@ test("video time and old-event fallbacks are safe", () => {
     getNotificationVideoUrl("http://127.0.0.1:8000", "outputs\\videos\\job.mp4"),
     "http://127.0.0.1:8000/outputs/videos/job.mp4",
   );
+  assert.equal(getMediaUrl("", "outputs/detections/result.jpg"), "/outputs/detections/result.jpg");
+  assert.equal(
+    getMediaUrl("https://visionguard-api.onrender.com/", "/outputs/videos/job.mp4"),
+    "https://visionguard-api.onrender.com/outputs/videos/job.mp4",
+  );
+  assert.equal(getMediaUrl("https://api.example.com", null), null);
 });
 
 test("detection viewer seeks to a persisted timestamp and clamps at video duration", () => {

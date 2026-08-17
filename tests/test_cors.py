@@ -25,6 +25,12 @@ class CorsConfigurationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "cannot contain"):
             get_frontend_origins("*")
 
+    def test_vercel_production_origin_is_normalized(self):
+        self.assertEqual(
+            get_frontend_origins("https://visionguard.vercel.app/"),
+            ["https://visionguard.vercel.app"],
+        )
+
     def test_localhost_5174_camera_preflight_is_allowed(self):
         with TestClient(app) as client:
             response = client.options(

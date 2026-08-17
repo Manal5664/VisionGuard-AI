@@ -416,7 +416,7 @@ export default function VideoDetection({ onNotificationsChanged }) {
         setRunning(false);
         setStatus({
           type: "error",
-          message: `Status check failed: ${error.message}. Is the backend running at ${API_BASE}?`,
+          message: `Status check failed: ${error.message}. Is the backend available?`,
         });
       }
     };
@@ -448,7 +448,7 @@ export default function VideoDetection({ onNotificationsChanged }) {
       <PageHeader
         eyebrow="Video analysis"
         title="Video Detection"
-        description="Upload video, draw a restricted zone, and review the intrusion timeline."
+        description="Upload video, draw a restricted zone, and review the intrusion timeline. CPU-only hosted processing can be slow."
       />
 
       <StepIndicator

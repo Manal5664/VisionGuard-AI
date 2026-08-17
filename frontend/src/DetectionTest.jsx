@@ -5,6 +5,7 @@ import Icon from "./components/ui/Icon";
 import PageHeader from "./components/ui/PageHeader";
 import StepIndicator from "./components/ui/StepIndicator";
 import { API_BASE } from "./config";
+import { getMediaUrl } from "./notificationUtils";
 
 export default function DetectionTest({ onEventsChanged }) {
   const [imageUrl, setImageUrl] = useState(null);
@@ -74,7 +75,7 @@ export default function DetectionTest({ onEventsChanged }) {
     } catch (error) {
       setStatus({
         type: "error",
-        message: `Detection failed: ${error.message}. Is the backend running at ${API_BASE}?`,
+        message: `Detection failed: ${error.message}. Is the backend available?`,
       });
     } finally {
       setRunning(false);
@@ -180,7 +181,7 @@ export default function DetectionTest({ onEventsChanged }) {
               <div className="annotated-frame">
                 <img
                   className="video-results-media"
-                  src={`${API_BASE}${result.annotated_image_path}`}
+                  src={getMediaUrl(API_BASE, result.annotated_image_path)}
                   alt="Annotated detection result"
                 />
               </div>

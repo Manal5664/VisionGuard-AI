@@ -203,7 +203,7 @@ export default function Cameras({ apiBase, onEventsChanged }) {
       <PageHeader
         eyebrow="Live security"
         title="Cameras"
-        description="Add a local webcam and open its focused live monitor."
+        description="Monitor a webcam physically connected to the computer running the backend."
         actions={
           <>
             <Button variant="secondary" icon="refresh" onClick={loadCameras} loading={loading}>
@@ -217,6 +217,11 @@ export default function Cameras({ apiBase, onEventsChanged }) {
       />
 
       {error && <p className="status status-error" role="alert">{error}</p>}
+
+      <p className="status status-info" role="note">
+        Webcam monitoring is local-only. A hosted Render backend cannot access a webcam
+        connected to your browser or computer; run the FastAPI backend locally to use this page.
+      </p>
 
       <section className="camera-summary" aria-label="Camera summary">
         <SummaryStat label="Total cameras" value={cameras.length} icon="camera" tone="blue" />

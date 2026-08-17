@@ -6,6 +6,21 @@ VisionGuard is a full-stack computer-vision security prototype. It combines YOLO
 
 VisionGuard is a portfolio project and local-development prototype. It is **not production-ready** and should not be treated as a replacement for a professionally designed security system.
 
+## Live demo and current deployment status
+
+**Live frontend demo:** [https://vision-guard-ai-seven.vercel.app](https://vision-guard-ai-seven.vercel.app)
+
+_Status verified August 18, 2026._
+
+| Component | Status | Details |
+| --- | --- | --- |
+| Frontend | **Successfully deployed** | Production URL: [https://vision-guard-ai-seven.vercel.app](https://vision-guard-ai-seven.vercel.app) |
+| Backend | **Not currently deployed** | FastAPI is Docker-ready and verified locally, but it is not deployed to Railway, Render, FastAPI Cloud, or any other public cloud host. |
+| Database | **Created and initialized** | Neon PostgreSQL is ready for backend access and is not exposed directly to the browser. |
+| Public demo | **Frontend/UI only** | Backend-dependent features are not available in the public Vercel demo because the backend is not publicly deployed. |
+
+Detection, events, zones, cameras, notifications, API health, and generated media require the backend. Full functionality remains available when the backend is run locally, as described below.
+
 ## Key features
 
 - **Image detection:** upload an image, run YOLO11n inference, inspect bounding boxes and confidence scores, and view an annotated result.
@@ -125,7 +140,6 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-pip install SQLAlchemy python-dotenv psycopg2-binary
 ```
 
 macOS/Linux:
@@ -135,10 +149,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-pip install SQLAlchemy python-dotenv psycopg2-binary
 ```
-
-> **Current setup caveat:** `requirements.txt` contains the vision and API packages but does not currently list SQLAlchemy, `python-dotenv`, or a PostgreSQL driver, even though the backend imports them. The explicit install command above is therefore required for a clean environment.
 
 ### 2. Database and environment
 
@@ -187,6 +198,173 @@ npm run dev
 ```
 
 Open the URL printed by Vite. The backend allows `localhost` and `127.0.0.1` on ports `5173` and `5174` by default, so Vite's first fallback port also works. To point the frontend at another API, copy `frontend/.env.example` to `frontend/.env` and set `VITE_API_BASE_URL`.
+
+Without `frontend/.env`, the Vite development server proxies `/api` and `/outputs` to `http://127.0.0.1:8000`. This keeps local startup behavior while ensuring a localhost API URL is not embedded in the production browser bundle.
+
+## Future Railway deployment with Docker
+
+> **Current status:** The backend is not deployed on Railway. These instructions are retained for a possible future deployment and have not been applied to a live service.
+
+The root `Dockerfile` packages only the FastAPI backend on Python 3.12. It installs ffmpeg and the shared libraries required by OpenCV, selects CPU-only PyTorch and torchvision wheels, and downloads `yolo11n.pt` during the image build. The detector still constructs the YOLO model lazily on the first inference request, and webcam capture still starts only when requested, so local webcam behavior is unchanged.
+
+The container creates `outputs/` and `data/uploads/`, runs one Uvicorn process, and listens on Railway's injected `PORT` when deployed there (or port `8000` elsewhere). Its lightweight Docker health check calls `/api/health` without loading YOLO or querying the database.
+
+### Future Railway deployment steps
+
+1. Create a Railway project and add a service from this repository.
+2. Keep the service root directory at the repository root. Railway detects the root `Dockerfile`; no custom build or start command is needed.
+3. Add these service variables in Railway:
+
+   ```dotenv
+   DATABASE_URL=postgresql://USER:PASSWORD@NEON_HOST/DATABASE?sslmode=require&channel_binding=require
+   VISIONGUARD_FRONTEND_ORIGINS=https://YOUR_FRONTEND_DOMAIN
+   ```
+
+   Use the Neon connection string supplied for the existing database. Store it only as a Railway secret, and do not pass it as a Docker build argument. The image contains no database URL or other application secret. `VISIONGUARD_FRONTEND_ORIGINS` accepts a comma-separated list of exact origins without trailing slashes.
+
+4. Do not add `PORT`; Railway supplies it at runtime.
+5. Generate a Railway public domain for the backend, then set the frontend deployment's existing `VITE_API_BASE_URL` to that HTTPS origin.
+6. Configure Railway's HTTP health-check path as `/api/health` if platform-level health checks are desired.
+
+The container deliberately does not run `create_tables.py` or `migrate.py` at startup, so deploying it does not modify Neon schema or data. Use one replica: video jobs and camera state are process-local, and additional replicas would split that state and duplicate YOLO memory.
+
+A Railway container's filesystem would be ephemeral. Files under `outputs/` and in-process video job state could disappear after a restart or redeploy, while Neon rows would remain durable. A Railway volume mounted at `/app/outputs` can preserve generated media if needed; adding object storage remains the more scalable option.
+
+### Build and verify locally
+
+The local health smoke test can use a disposable SQLite URL because `/api/health` does not access application data:
+
+```powershell
+docker build -t visionguard-backend .
+docker run --rm -d --name visionguard-health -p 8000:8000 -e DATABASE_URL=sqlite:////tmp/visionguard-health.db visionguard-backend
+Invoke-RestMethod http://127.0.0.1:8000/api/health
+docker stop visionguard-health
+```
+
+This container-only check neither reads nor writes Neon. Normal non-Docker local development remains the same as described above.
+
+## Optional future backend deployment reference: Vercel + Render + Neon
+
+The frontend is currently deployed on Vercel, and the Neon PostgreSQL database has been created and initialized. The FastAPI backend is **not deployed on Render, Railway, FastAPI Cloud, or any other public cloud host**. This section is retained as an optional future backend topology and does not describe the current public demo.
+
+If Render is selected for a future backend deployment, the application could use this split:
+
+- **Vercel:** the deployed static Vite/React frontend from `frontend/`;
+- **Render:** an optional CPU-only FastAPI web service from the repository root;
+- **Neon:** the initialized PostgreSQL database for persistent cameras, zones, and events;
+- **Render filesystem:** temporary uploads and generated annotated media if the backend is deployed there.
+
+Under that future topology, the browser would talk directly to the Render API for REST requests, uploads, Server-Sent Events, MJPEG streams, and `/outputs` media. Vercel would not proxy production API traffic.
+
+### Future Render environment variables
+
+| Platform | Variable | Value |
+| --- | --- | --- |
+| Render | `DATABASE_URL` | Secret direct Neon URL with `sslmode=require` (and the Neon-provided `channel_binding` option when present) |
+| Render | `VISIONGUARD_FRONTEND_ORIGINS` | Exact Vercel production origin, without a trailing slash |
+| Vercel | `VITE_API_BASE_URL` | Public Render service URL, without a trailing slash |
+
+A future Render service would supply `PORT`; do not set it manually. `VITE_API_BASE_URL` is public build-time configuration, not a secret. Do not put a database URL or any other credential in a `VITE_` variable.
+
+### 1. Neon status and initialization reference
+
+The current Neon database is already created and initialized. The following steps are retained for recreating the setup in a new environment. Do not rerun them against the current database unless a schema change is intentional:
+
+1. Create a Neon project, database, and role.
+2. Copy a **direct** connection string from Neon. Use the direct URL for the schema scripts; pooled PgBouncer URLs can be unsuitable for schema migration tools.
+3. Set that value as `DATABASE_URL` in a temporary terminal environment. Do not paste it into a tracked file.
+4. From the repository root, initialize the empty Neon database:
+
+   ```powershell
+   python create_tables.py
+   python migrate.py
+   ```
+
+5. Remove the temporary terminal value and add the same connection string to Render as the secret `DATABASE_URL`.
+
+Both scripts are additive: `create_tables.py` creates missing current tables and `migrate.py` applies PostgreSQL `IF NOT EXISTS` additions and indexes. Do not point these commands at a database you do not intend to change.
+
+### 2. Prepare a future Render web service
+
+The root `render.yaml` records the intended Free web-service configuration without containing credentials. Applying the Blueprint will create/deploy a service, so do not apply it until deployment is approved.
+
+Equivalent dashboard settings are:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | Repository root |
+| Runtime | Python |
+| Instance | Free (initial portfolio target) |
+| Health check | `/api/health` |
+| Build command | See below |
+| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+
+Build command:
+
+```bash
+pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchvision==0.28.0 && pip install -r requirements.txt && python -c "from ultralytics import YOLO; YOLO('yolo11n.pt')"
+```
+
+The first command selects CPU PyTorch wheels. The last command downloads the current YOLO11n weights into the build artifact, avoiding a model download on every runtime cold start. `.python-version` pins Python 3.12 for compatible binary wheels.
+
+For a future Render deployment, set these environment values before deployment:
+
+```dotenv
+DATABASE_URL=postgresql://USER:PASSWORD@NEON_HOST/DATABASE?sslmode=require&channel_binding=require
+VISIONGUARD_FRONTEND_ORIGINS=https://YOUR_VERCEL_PROJECT.vercel.app
+```
+
+Use exactly one Uvicorn worker. Video jobs and camera state are stored in-process, and extra workers would duplicate YOLO memory and split job state.
+
+### 3. Vercel frontend status and configuration
+
+The frontend is live at [https://vision-guard-ai-seven.vercel.app](https://vision-guard-ai-seven.vercel.app) with these Vercel settings:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `frontend` |
+| Framework | Vite |
+| Install command | Detected from `package-lock.json` |
+| Build command | `npm run build` |
+| Output directory | `dist` |
+
+If a public backend is deployed later, set the production environment variable to that backend's public origin and redeploy the frontend:
+
+```dotenv
+VITE_API_BASE_URL=https://YOUR_RENDER_SERVICE.onrender.com
+```
+
+For a future Render deployment, set `VISIONGUARD_FRONTEND_ORIGINS` to `https://vision-guard-ai-seven.vercel.app` exactly. Preview deployment hostnames are different and must be added explicitly if preview builds need API access; wildcard origins remain disabled because credentials are enabled.
+
+No `vercel.json` is needed because VisionGuard uses in-page navigation instead of URL-based client routes, and Vercel detects the Vite build output.
+
+### Ephemeral media on Render
+
+There is no current Render backend filesystem because the backend is not deployed there. In a future Render deployment, the database would remain durable in Neon, while the initial configuration below would not add object storage or a persistent disk.
+
+| Path/state | Behavior | Lost after restart, spin-down, or redeploy? |
+| --- | --- | --- |
+| `data/uploads/` | Temporary image/video upload sources | Yes; completed image uploads are already deleted after each request |
+| `outputs/detections/` | Annotated image results | Yes |
+| `outputs/videos/` | Browser-compatible annotated video results | Yes |
+| `outputs/cameras/events/` | Annotated local-camera event snapshots | Yes |
+| Video job registry/progress | In-process background-job state | Yes |
+| Camera monitors and SSE subscribers | In-process local webcam state | Yes |
+| Cameras, zones, events | Neon PostgreSQL rows | No |
+
+With that deployment model, an event row could outlive its referenced annotated file, and an older **View Detection** link could return 404 after the backend lifecycle resets. S3-compatible object storage is the intended later upgrade, but is not part of the current repository setup.
+
+### YOLO and Render Free expectations
+
+YOLO11n remains unchanged and uses CPU inference only. Model/PyTorch import and model loading are lazy, so `/api/health`, event history, zones, and other lightweight API features can start without eagerly allocating the inference stack. Image inference runs outside the async event loop; if model loading or execution fails, `/api/detect` returns a controlled `503` instead of crashing the API.
+
+A future Render Free instance would have very limited CPU and memory. Inference could be slow, video analysis could take a long time, and the process could be terminated if PyTorch exceeds the instance memory limit. The UI reports failed jobs and explains that CPU-hosted processing can be slow. A hosted backend would remain a portfolio demonstration, not a performance guarantee.
+
+### Webcam behavior in cloud and local environments
+
+Live camera monitoring remains available when FastAPI runs on a computer with a connected webcam. Capture is opened only after an operator starts a monitor; it is not touched during cloud application startup. If no device is available, the monitor enters an error state without terminating the API.
+
+A future Render backend could not access a webcam connected to a visitor's browser or computer. The Cameras page states this limitation and directs users to run the backend locally. RTSP/IP camera support is not included.
 
 ## Main API endpoints
 
@@ -253,6 +431,8 @@ VisionGuard/
 |-- models/                  # Local model asset directory (currently unused by Detector)
 |-- create_tables.py         # Create the current SQLAlchemy schema
 |-- migrate.py               # Apply PostgreSQL schema additions and indexes
+|-- Dockerfile               # Python 3.12 production backend image
+|-- .dockerignore            # Excludes secrets, local artifacts, and frontend files
 |-- requirements.txt
 `-- yolo11n.pt               # Model path expected by Detector (ignored by Git)
 ```
@@ -278,9 +458,8 @@ Screenshots will be added after the interface is finalized.
 - Video job state and live monitor state are in process and are lost when the backend restarts; video jobs are serialized by a process lock rather than a durable queue.
 - Each analysis uses one rectangular zone: the first global zone for images, one submitted zone for a video, or the latest camera-specific zone for a webcam.
 - ByteTrack is not explicitly selected in `Detector`; tracking currently follows the installed Ultralytics default configuration.
-- The image API generates an annotated JPEG, but the current frontend concatenates its returned relative path without a separating slash, so the annotated preview URL may fail to load.
 - Notification read/unread state is browser-local, and generated output files have no retention or cleanup policy.
-- The Python dependency manifest is incomplete as noted in the setup section.
+- A future Render or similar hosted filesystem would be ephemeral unless persistent storage is added; database rows could outlive annotated media files.
 - Model quality, inference speed, and webcam frame rate depend on hardware, footage, and the YOLO11n weights. The project has not been hardened, load-tested, or secured for production deployment.
 
 ## Roadmap (planned, not implemented)
@@ -288,4 +467,5 @@ Screenshots will be added after the interface is finalized.
 - RTSP/IP CCTV stream support
 - SMS, WhatsApp, and email alert integrations
 - Authentication, users, and role-based access
-- Cloud deployment and production infrastructure
+- Public backend hosting and live frontend/API integration
+- Durable cloud media storage and production hardening

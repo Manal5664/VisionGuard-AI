@@ -53,10 +53,15 @@ export function formatVideoTime(seconds) {
   return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
-export function getNotificationVideoUrl(apiBase, mediaPath) {
+export function getMediaUrl(apiBase, mediaPath) {
   if (!mediaPath) return null;
+  const normalizedBase = String(apiBase || "").replace(/\/+$/, "");
   const normalizedPath = String(mediaPath).replaceAll("\\", "/").replace(/^\/+/, "");
-  return `${apiBase}/${normalizedPath}`;
+  return `${normalizedBase}/${normalizedPath}`;
+}
+
+export function getNotificationVideoUrl(apiBase, mediaPath) {
+  return getMediaUrl(apiBase, mediaPath);
 }
 
 export function getDetectionSeekTime(videoTimeSeconds, durationSeconds) {

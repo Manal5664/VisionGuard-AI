@@ -2,12 +2,13 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.core.database import SessionLocal
 from app.models.event import Event
 from app.services.annotation import annotate_detections
-from app.services.detector import Detector
+from app.services.detector import Detector, InferenceUnavailableError
 from app.services.intrusion import is_person_intrusion
 from app.services.zones import get_restricted_zone
 
@@ -30,7 +31,16 @@ async def detect_image(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     try:
-        detections = detector.detect(str(temp_path))
+        try:
+            detections = await run_in_threadpool(detector.detect, str(temp_path))
+        except InferenceUnavailableError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "AI inference is temporarily unavailable on this instance. "
+                    "Try again later or run VisionGuard locally."
+                ),
+            ) from exc
 
         db = SessionLocal()
 

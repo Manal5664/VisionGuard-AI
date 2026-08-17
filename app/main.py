@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +12,10 @@ from app.api.video_detection import router as video_detection_router
 from app.api.zones import router as zones_router
 from app.core.config import get_frontend_origins
 from app.services.camera_monitor import camera_manager
+
+
+OUTPUT_DIR = Path("outputs")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="VisionGuard API",
@@ -57,7 +63,7 @@ app.include_router(
     tags=["Health"],
 )
 
-app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
+app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
 
 @app.on_event("shutdown")

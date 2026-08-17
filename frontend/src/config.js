@@ -1,5 +1,5 @@
-const DEFAULT_API_BASE = "http://127.0.0.1:8000";
-
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL?.trim();
 
-export const API_BASE = (configuredApiBase || DEFAULT_API_BASE).replace(/\/+$/, "");
+// Production sets VITE_API_BASE_URL. Local Vite development uses the proxy in
+// vite.config.js, so localhost is never embedded in the production browser bundle.
+export const API_BASE = (configuredApiBase || "").replace(/\/+$/, "");

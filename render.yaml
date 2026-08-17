@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: visionguard-api
+    runtime: python
+    plan: free
+    buildCommand: >-
+      pip install --index-url https://download.pytorch.org/whl/cpu torch==2.13.0 torchvision==0.28.0
+      && pip install -r requirements.txt
+      && python -c "from ultralytics import YOLO; YOLO('yolo11n.pt')"
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: VISIONGUARD_FRONTEND_ORIGINS
+        sync: false
